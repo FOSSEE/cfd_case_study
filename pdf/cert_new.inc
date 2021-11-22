@@ -215,7 +215,6 @@ function generate_pdf()
 		$pdf->Ln(30);
 		//$pdf->Cell(200, 8, $pdf->Image($image1, 105, 15, 0, 28), 0, 1, 'C');
 		//$pdf->Ln(20);
-		
 		//$pdf->SetTextColor(139, 69, 19);
 		//$pdf->Cell(240, 8, 'Certificate of Participation', '0', 1, 'C');
 		//$pdf->Ln(26);
