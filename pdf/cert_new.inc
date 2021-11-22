@@ -41,10 +41,12 @@ function generate_pdf()
 		echo "Error!";
 	} //!$pdf
 	$pdf->AddPage();
-	$date1 = '01-12-2020';
-	$date2 = '31-12-2021';
-	$approval_date = date('d-m-Y', $data3->approval_date);
-	if(($date1>$approval_date) && ($approval_date>$date2))
+
+	$date1 = new DateTime("2020-12-01");
+	$date2 = new DateTime("2021-12-31");
+	$approval_date = date('Y-m-d', $data3->approval_date); 
+
+	if($date1<$approval_date)
 	{	
 		$image_bg = $mpath . "/pdf/images/bg_cert.png";
 		//$pdf->Image($image_bg, 0, 0, $pdf->w, $pdf->h);
@@ -199,7 +201,7 @@ function generate_pdf()
 		$pdf->SetX(800);
 		//$pdf->Ln(2);
 	}
-	else if (($date2>$approval_date) && ($date1>$approval_date)) 
+	else if ($date2>$approval_date)
 	{
 		$image_bg = $mpath . "/pdf/images/bg_cert_1.png";
 		//$pdf->Image($image_bg, 0, 0, $pdf->w, $pdf->h);
