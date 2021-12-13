@@ -20,7 +20,8 @@ function cfd_case_study_completed_proposals_all()
 	{
 		$output .= "Work has been completed for the following case study. We welcome your contributions." . "<hr>";
 		$preference_rows = array();
-		$i = 1;
+		$i = $result->rowCount();
+		//var_dump($i);die;
 		while ($row = $result->fetchObject())
 		{
 			$proposal_id = $row->id;
@@ -41,7 +42,7 @@ function cfd_case_study_completed_proposals_all()
 				$row->university,
 				$year
 			);
-			$i++;
+			$i--;
 		} //$row = $result->fetchObject()
 		$preference_header = array(
 			'No',
