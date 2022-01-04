@@ -1001,19 +1001,18 @@ function cfd_case_study_proposal_edit_form($form, &$form_state)
             'callback' => 'ajax_solver_used_callback',
         ),
     );
-    $version_id = isset($form_state['values']['version']) ? $form_state['values']['version'] : $proposal_data->version_id;
     $simulation_id = isset($form_state['values']['simulation_type']) ? $form_state['values']['simulation_type'] : $proposal_data->simulation_type_id;
 
     $form['solver_used'] = array(
         '#type' => 'select',
         '#title' => t('Select the Solver to be used'),
-        '#options' => _cs_list_of_solvers($version_id, $simulation_id),
+        '#options' => _cs_list_of_solvers($simulation_id),
         '#prefix' => '<div id="ajax-solver-replace">',
         '#suffix' => '</div>',
         '#states' => array(
                 'invisible' => array(
                     ':input[name="simulation_type"]' => array(
-                        'value' => 13
+                        'value' => 19
                     )
                 )
             ),
@@ -1032,7 +1031,7 @@ function cfd_case_study_proposal_edit_form($form, &$form_state)
         '#states' => array(
                 'visible' => array(
                     ':input[name="simulation_type"]' => array(
-                        'value' => 13
+                        'value' => 19
                     )
                 )
             ),
@@ -1068,10 +1067,9 @@ function cfd_case_study_proposal_edit_form($form, &$form_state)
 }
 
 function ajax_solver_used_callback($form, $form_state){
-    $version_id = isset($form_state['values']['version']) ? $form_state['values']['version'] : key($version_options);
     $simulation_id = isset($form_state['values']['simulation_type']) ? $form_state['values']['simulation_type'] : key($simulation_type_options);
-    if($simulation_id < 13){
-        $form['solver_used']['#options'] = _cs_list_of_solvers($version_id, $simulation_id);
+    if($simulation_id < 19){
+        $form['solver_used']['#options'] = _cs_list_of_solvers($simulation_id);
         $form['solver_used']['#required'] = TRUE;
         $form['solver_used']['#validated'] = TRUE;
         $commands[] = ajax_command_replace('#ajax-solver-replace', drupal_render($form['solver_used']));
@@ -1089,12 +1087,12 @@ function ajax_solver_used_callback($form, $form_state){
     );
 }
 function cfd_case_study_proposal_edit_form_validate($form, $form_state){
-    if ($form_state['values']['simulation_type'] < 13) {
+    if ($form_state['values']['simulation_type'] < 19) {
         if($form_state['values']['solver_used'] == '0'){
             form_set_error('solver_used', t('Please select an option'));
         }
     }
-    else if ($form_state['values']['simulation_type'] == 13) {
+    else if ($form_state['values']['simulation_type'] == 19) {
     if ($form_state['values']['solver_used_text'] != '')
     {
         if (strlen($form_state['values']['solver_used_text']) > 100)
@@ -1182,7 +1180,7 @@ function cfd_case_study_proposal_edit_form_submit($form, &$form_state)
         return;
     }
     $simulation_id = $v['simulation_type'];
-    if($simulation_id < 13){
+    if($simulation_id < 19){
         $solver = $v['solver_used'];
     }
     else{
