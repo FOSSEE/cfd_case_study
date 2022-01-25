@@ -13,12 +13,12 @@ function cfd_case_study_completed_proposals_all()
 	//var_dump($case_study_abstract);die;
 	if ($result->rowCount() == 0)
 	{
-		$output .= "Work has been completed for the following case study. We welcome your contributions." ."<hr>";
+		$output .= "Work has been completed for the following case studies. We welcome your contributions." ."<hr>";
 
 	} //$result->rowCount() == 0
 	else
 	{
-		$output .= "Work has been completed for the following case study. We welcome your contributions." . "<hr>";
+		$output .= "Work has been completed for the following case studies. We welcome your contributions." . "<hr>";
 		$preference_rows = array();
 		$i = $result->rowCount();
 		//var_dump($i);die;
@@ -70,11 +70,11 @@ function cfd_case_study_progress_all()
 	$result = $query->execute();
 	if ($result->rowCount() == 0)
 	{
-		$page_content .= "Work is in progress for the following case study under case study Project<hr>";
+		$page_content .= "Work is in progress for the following case studies under case study Project<hr>";
 	} //$result->rowCount() == 0
 	else
 	{
-		$page_content .= "Work is in progress for the following case study under case study Project<hr>";
+		$page_content .= "Work is in progress for the following case studies under case study Project<hr>";
 		$preference_rows = array();
 		$i = 1;
 		while ($row = $result->fetchObject())
