@@ -23,15 +23,15 @@ case_study_solution : approval_status
 */
 function cfd_case_study_proposal_form($form, &$form_state, $no_js_use = FALSE)
 {
-	global $user;
+	$user = \Drupal::currentUser();
 	/************************ start approve book details ************************/
 	if ($user->uid == 0)
 	{
-		$msg = drupal_set_message(t('It is mandatory to ' . l('login', 'user') . ' on this website to access the case study proposal form. If you are new user please create a new account first.'), 'error');
+		$msg = \Drupal::messenger()->addError(t('It is mandatory to ' . \Drupal\Core\Link::fromTextAndUrl('login', \Drupal\Core\Url::fromRoute('user.page')) . ' on this website to access the case study proposal form. If you are new user please create a new account first.'));
 		drupal_goto('user');
 		return $msg;
 	} //$user->uid == 0
-	$query = db_select('case_study_proposal');
+	$query = \Drupal::database()->select('case_study_proposal');
 	$query->fields('case_study_proposal');
 	$query->condition('uid', $user->uid);
 	$query->orderBy('id', 'DESC');
@@ -42,7 +42,7 @@ function cfd_case_study_proposal_form($form, &$form_state, $no_js_use = FALSE)
 	{
 		if ($proposal_data->approval_status == 0 || $proposal_data->approval_status == 1)
 		{
-			drupal_set_message(t('We have already received your proposal.'), 'status');
+			\Drupal::messenger()->addStatus(t('We have already received your proposal.'));
 			drupal_goto('');
 			return;
 		} //$proposal_data->approval_status == 0 || $proposal_data->approval_status == 1
@@ -363,11 +363,16 @@ function cfd_case_study_proposal_form($form, &$form_state, $no_js_use = FALSE)
 		'#collapsible' => FALSE,
 		'#collapsed' => FALSE
 	);
-	$form['abstract_file']['abstract_file_path'] = array(
-		'#type' => 'file',
-		'#size' => 48,
-		'#description' => t('<span style="color:red;">Upload filenames with allowed extensions only. No spaces or any special characters allowed in filename.</span>') . '<br />' . t('<span style="color:red;">Allowed file extensions : ') . variable_get('resource_upload_extensions', '') . '</span>'
-	);
+	// @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $form['abstract_file']['abstract_file_path'] = array(
+// 		'#type' => 'file',
+// 		'#size' => 48,
+// 		'#description' => t('<span style="color:red;">Upload filenames with allowed extensions only. No spaces or any special characters allowed in filename.</span>') . '<br />' . t('<span style="color:red;">Allowed file extensions : ') . variable_get('resource_upload_extensions', '') . '</span>'
+// 	);
+
 	$form['date_of_proposal'] = array(
 		'#type' => 'date_popup',
 		'#title' => t('Date of Proposal'),
@@ -409,14 +414,14 @@ function ajax_solver_used_callback($form, $form_state){
 		$form['solver_used']['#options'] = _cs_list_of_solvers($simulation_id);
 		$form['solver_used']['#required'] = TRUE;
 		$form['solver_used']['#validated'] = TRUE;
-		$commands[] = ajax_command_replace('#ajax-solver-replace', drupal_render($form['solver_used']));
+		$commands[] = ajax_command_replace('#ajax-solver-replace', \Drupal::service("renderer")->render($form['solver_used']));
 		$commands[] = ajax_command_html('#ajax-solver-text-replace', '');
 	}
 	else{
 		$commands[] = ajax_command_html('#ajax-solver-replace', '');
 		$form['solver_used_text']['#required'] = TRUE;
 		$form['solver_used_text']['#validated'] = TRUE;
-		$commands[] = ajax_command_replace('#ajax-solver-text-replace', drupal_render($form['solver_used_text']));
+		$commands[] = ajax_command_replace('#ajax-solver-text-replace', \Drupal::service("renderer")->render($form['solver_used_text']));
 	}
 	return array(
         '#type' => 'ajax',
@@ -566,7 +571,12 @@ if (isset($_FILES['files']))
 			if ($file_name)
 			{
 				/* checking file type */
-				$allowed_extensions_str = variable_get('resource_upload_extensions', '');
+				// @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $allowed_extensions_str = variable_get('resource_upload_extensions', '');
+
 				$allowed_extensions = explode(',', $allowed_extensions_str);
 				$fnames = explode('.', strtolower($_FILES['files']['name'][$file_form_name]));
 				$temp_extension = end($fnames);
@@ -584,11 +594,11 @@ if (isset($_FILES['files']))
 }
 function cfd_case_study_proposal_form_submit($form, &$form_state)
 {
-	global $user;
+	$user = \Drupal::currentUser();
 	$root_path = case_study_path();
 	if (!$user->uid)
 	{
-		drupal_set_message('It is mandatory to login on this website to access the proposal form', 'error');
+		\Drupal::messenger()->addError('It is mandatory to login on this website to access the proposal form');
 		return;
 	}
 	if($form_state['values']['cfd_project_title_check'] == 1)
@@ -704,11 +714,9 @@ function cfd_case_study_proposal_form_submit($form, &$form_state)
 		":expected_date_of_completion" => strtotime(date($v['expected_date_of_completion'])),
 		":approval_date" => 0
 		);
-	$result1 = db_query($result, $args, array(
-		'return' => Database::RETURN_INSERT_ID
-	));
+	$result1 = \Drupal::database()->query($result, $args, $result);
 	//var_dump($result1->id);die;
-	$query_pro = db_select('case_study_proposal');
+	$query_pro = \Drupal::database()->select('case_study_proposal');
 	$query_pro->fields('case_study_proposal');
 //	$query_pro->condition('id', $proposal_data->id);
 	$abstracts_pro = $query_pro->execute()->fetchObject();
@@ -726,13 +734,13 @@ function cfd_case_study_proposal_form_submit($form, &$form_state)
 			//$file_type = 'S';
 			if (file_exists($root_path . $dest_path . $_FILES['files']['name'][$file_form_name]))
 			{
-				 drupal_set_message(t("Error uploading file. File !filename already exists.", array('!filename' => $_FILES['files']['name'][$file_form_name])), 'error');
+				 \Drupal::messenger()->addError(t("Error uploading file. File !filename already exists.", array('!filename' => $_FILES['files']['name'][$file_form_name])));
 				//unlink($root_path . $dest_path . $_FILES['files']['name'][$file_form_name]);
 			} //file_exists($root_path . $dest_path . $_FILES['files']['name'][$file_form_name])
 			/* uploading file */
 			if (move_uploaded_file($_FILES['files']['tmp_name'][$file_form_name], $root_path . $dest_path . $_FILES['files']['name'][$file_form_name]))
 			{
-				$query_pro = db_select('case_study_proposal');
+				$query_pro = \Drupal::database()->select('case_study_proposal');
 	$query_pro->fields('case_study_proposal');
 	//$query_pro->condition('id', $proposal_data->id);
 	$abstracts_pro = $query_pro->execute()->fetchObject();
@@ -754,9 +762,7 @@ function cfd_case_study_proposal_form_submit($form, &$form_state)
 			":abstract_approval_date" => 0,
 			":is_submitted" => 0
 		);
-		$submitted_abstract_id = db_query($query_abstracts, $args, array(
-			'return' => Database::RETURN_INSERT_ID
-		));
+		$submitted_abstract_id = \Drupal::database()->query($query_abstracts, $args, $query_abstracts);
 			$query = "INSERT INTO {case_study_submitted_abstracts_file} (submitted_abstract_id, proposal_id, uid, approvar_uid, filename, filepath, filemime, filesize, filetype, timestamp)
           VALUES (:submitted_abstract_id, :proposal_id, :uid, :approvar_uid, :filename, :filepath, :filemime, :filesize, :filetype, :timestamp)";
 							$args = array(
@@ -778,27 +784,42 @@ function cfd_case_study_proposal_form_submit($form, &$form_state)
 					":id" => $result1
 				);*/
 				
-				$updateresult = db_query($query, $args);
+				$updateresult = \Drupal::database()->query($query, $args);
 				//var_dump($args);die;
 
-				drupal_set_message($file_name . ' uploaded successfully.', 'status');
+				\Drupal::messenger()->addStatus($file_name . ' uploaded successfully.');
 			} //move_uploaded_file($_FILES['files']['tmp_name'][$file_form_name], $root_path . $dest_path . $_FILES['files']['name'][$file_form_name])
 			else
 			{
-				drupal_set_message('Error uploading file : ' . $dest_path . '/' . $file_name, 'error');
+				\Drupal::messenger()->addError('Error uploading file : ' . $dest_path . '/' . $file_name);
 			}
 		} //$file_name
 	} //$_FILES['files']['name'] as $file_form_name => $file_name
 	if (!$result1)
 	{
-		drupal_set_message(t('Error receiving your proposal. Please try again.'), 'error');
+		\Drupal::messenger()->addError(t('Error receiving your proposal. Please try again.'));
 		return;
 	} //!$proposal_id
 	/* sending email */
 	$email_to = $user->mail;
-	$form = variable_get('case_study_from_email', '');
-	$bcc = variable_get('case_study_emails', '');
-	$cc = variable_get('case_study_cc_emails', '');
+	// @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $form = variable_get('case_study_from_email', '');
+
+	// @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $bcc = variable_get('case_study_emails', '');
+
+	// @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $cc = variable_get('case_study_cc_emails', '');
+
 	$params['case_study_proposal_received']['result1'] = $result1;
 	$params['case_study_proposal_received']['user_id'] = $user->uid;
 	$params['case_study_proposal_received']['headers'] = array(
@@ -811,8 +832,8 @@ function cfd_case_study_proposal_form_submit($form, &$form_state)
 		'Bcc' => $bcc
 	);
 	if (!drupal_mail('case_study', 'case_study_proposal_received', $email_to, user_preferred_language($user), $params, $form, TRUE))
-		drupal_set_message('Error sending email message.', 'error');
-	drupal_set_message(t('We have received your case study proposal. We will get back to you soon.'), 'status');
+		\Drupal::messenger()->addError('Error sending email message.');
+	\Drupal::messenger()->addStatus(t('We have received your case study proposal. We will get back to you soon.'));
 	drupal_goto('');
 }
 

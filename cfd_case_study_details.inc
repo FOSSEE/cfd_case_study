@@ -3,7 +3,7 @@
 function cfd_case_study_completed_proposals_all()
 {
 	$output = "";
-	$query = db_select('case_study_proposal');
+	$query = \Drupal::database()->select('case_study_proposal');
 	$query->fields('case_study_proposal');
 	$query->condition('approval_status', 3);
 	$query->orderBy('actual_completion_date', 'DESC');
@@ -25,14 +25,17 @@ function cfd_case_study_completed_proposals_all()
 		while ($row = $result->fetchObject())
 		{
 			$proposal_id = $row->id;
-			$query1 = db_select('case_study_submitted_abstracts_file');
+			$query1 = \Drupal::database()->select('case_study_submitted_abstracts_file');
 			$query1->fields('case_study_submitted_abstracts_file');
 			$query1->condition('file_approval_status', 1);
 			$query1->condition('proposal_id', $proposal_id);
 			$case_study_files = $query1->execute();
 			$case_study_abstract = $case_study_files->fetchObject();
 			$solver_used = $row->solver_used;
-			$project_title = l($row->project_title, "case-study-project/case-study-run/" . $row->id) . t("<br><strong>(Solver used: ") . $solver_used . t(")</strong>") ;
+			// @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $project_title = l($row->project_title, "case-study-project/case-study-run/" . $row->id) . t("<br><strong>(Solver used: ") . $solver_used . t(")</strong>") ;
+
 			$year = date("Y", $row->actual_completion_date);
 			$preference_rows[] = array(
 				$i,
@@ -52,10 +55,19 @@ function cfd_case_study_completed_proposals_all()
 			'University/ Institute',
 			'Year of Completion'
 		);
-		$output .= theme('table', array(
-			'header' => $preference_header,
-			'rows' => $preference_rows
-		));
+		// @FIXME
+// theme() has been renamed to _theme() and should NEVER be called directly.
+// Calling _theme() directly can alter the expected output and potentially
+// introduce security issues (see https://www.drupal.org/node/2195739). You
+// should use renderable arrays instead.
+// 
+// 
+// @see https://www.drupal.org/node/2195739
+// $output .= theme('table', array(
+// 			'header' => $preference_header,
+// 			'rows' => $preference_rows
+// 		));
+
 	}
 	return $output;
 }
@@ -63,7 +75,7 @@ function cfd_case_study_completed_proposals_all()
 function cfd_case_study_progress_all()
 {
 	$page_content = "";
-	$query = db_select('case_study_proposal');
+	$query = \Drupal::database()->select('case_study_proposal');
 	$query->fields('case_study_proposal');
 	$query->condition('approval_status', 1);
 	$query->condition('is_completed', 0);
@@ -97,10 +109,19 @@ function cfd_case_study_progress_all()
 			'Institute/ University',
 			'Year'
 		);
-		$page_content .= theme('table', array(
-			'header' => $preference_header,
-			'rows' => $preference_rows
-		));
+		// @FIXME
+// theme() has been renamed to _theme() and should NEVER be called directly.
+// Calling _theme() directly can alter the expected output and potentially
+// introduce security issues (see https://www.drupal.org/node/2195739). You
+// should use renderable arrays instead.
+// 
+// 
+// @see https://www.drupal.org/node/2195739
+// $page_content .= theme('table', array(
+// 			'header' => $preference_header,
+// 			'rows' => $preference_rows
+// 		));
+
 	}
 	return $page_content;
 }

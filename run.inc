@@ -42,10 +42,13 @@ function cfd_case_study_run_form($form, &$form_state)
 			'#type' => 'item',
 			'#markup' => '<div id="ajax_case_study_details">' . _case_study_details($case_study_default_value) . '</div>'
 		);
-		$form['selected_case_study'] = array(
-			'#type' => 'item',
-			'#markup' => '<div id="ajax_selected_case_study">' . l('Download Abstract', "case-study-project/download/project-file/" . $case_study_default_value) . '<br>' . l('Download Case Study', 'case-study-project/full-download/project/' . $case_study_default_value) . '</div>'
-		);
+		// @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $form['selected_case_study'] = array(
+// 			'#type' => 'item',
+// 			'#markup' => '<div id="ajax_selected_case_study">' . l('Download Abstract', "case-study-project/download/project-file/" . $case_study_default_value) . '<br>' . l('Download Case Study', 'case-study-project/full-download/project/' . $case_study_default_value) . '</div>'
+// 		);
+
 	}
 	return $form;
 }
@@ -56,9 +59,12 @@ function case_study_project_details_callback($form, $form_state)
 	if ($case_study_default_value != 0) {
 		$form['case_study_details']['#markup'] = _case_study_details($case_study_default_value);
 		$case_study_details = _case_study_information($case_study_default_value);
-		$provider = user_load($case_study_details->uid);
+		$provider = \Drupal::entityTypeManager()->getStorage('user')->load($case_study_details->uid);
 		if ($case_study_details->uid > 0) {
-			$commands[] = ajax_command_html('#ajax_selected_case_study', l('Download Abstract', "case-study-project/download/project-file/" . $case_study_default_value) . '<br>' . l('Download case study', 'case-study-project/full-download/project/' . $case_study_default_value));
+			// @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $commands[] = ajax_command_html('#ajax_selected_case_study', l('Download Abstract', "case-study-project/download/project-file/" . $case_study_default_value) . '<br>' . l('Download case study', 'case-study-project/full-download/project/' . $case_study_default_value));
+
 		} //$case_study_details->uid > 0
 		else {
 			$commands[] = ajax_command_html('#ajax_selected_case_study', '');
@@ -108,7 +114,7 @@ function _list_of_case_study()
 		'0' => 'Please select...'
 	);
 	//$lab_titles_q = db_query("SELECT * FROM {case_study_proposal} WHERE solution_display = 1 ORDER BY lab_title ASC");
-	$query = db_select('case_study_proposal');
+	$query = \Drupal::database()->select('case_study_proposal');
 	$query->fields('case_study_proposal');
 	$query->condition('approval_status', 3);
 	$query->orderBy('project_title', 'ASC');
@@ -120,7 +126,7 @@ function _list_of_case_study()
 }
 function _case_study_information($proposal_id)
 {
-	$query = db_select('case_study_proposal');
+	$query = \Drupal::database()->select('case_study_proposal');
 	$query->fields('case_study_proposal');
 	$query->condition('id', $proposal_id);
 	$query->condition('approval_status', 3);
