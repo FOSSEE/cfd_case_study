@@ -23,6 +23,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\Core\Database\Database;
 use Drupal\Core\Messenger\MessengerInterface;
 use Drupal\Core\Mail\MailManager;
+use Drupal\Core\Mail\MailManagerInterface;
 use Drupal\user\Entity\User;
 
 
@@ -51,7 +52,9 @@ class CfdCaseStudyProposalForm extends FormBase {
     } //$user->uid == 0
     $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
-    $query->condition('uid', $user->uid);
+       // $query->condition('uid', $user->uid);
+    $query->condition('uid', $user->id());
+ 
     $query->orderBy('id', 'DESC');
     $query->range(0, 1);
     $proposal_q = $query->execute();
@@ -625,6 +628,7 @@ $allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('resou
 
   public function submitForm(array &$form, \Drupal\Core\Form\FormStateInterface $form_state) {
     $user = \Drupal::currentUser();
+
     $root_path = cfd_case_study_path();
     if (!$user->id()) {
       \Drupal::messenger()->addError('It is mandatory to login on this website to access the proposal form');
@@ -779,7 +783,8 @@ $allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('resou
 	abstract_approval_status,
 	abstract_upload_date,
 	abstract_approval_date,
-	is_submitted) VALUES (:proposal_id, :approver_uid, :abstract_approval_status,:abstract_upload_date, :abstract_approval_date, :is_submitted)";
+	is_submitted) 
+  VALUES (:proposal_id, :approver_uid, :abstract_approval_status,:abstract_upload_date, :abstract_approval_date, :is_submitted)";
           $args = [
             ":proposal_id" => $result1,
             ":approver_uid" => 0,
@@ -825,7 +830,7 @@ $allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('resou
       return;
     } //!$proposal_id
 	/* sending email */
-    $email_to = $user->mail;
+   // $email_to = $user->mail;
     // @FIXME
     // // @FIXME
     // // This looks like another module's variable. You'll need to rewrite this call
@@ -858,6 +863,37 @@ $allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('resou
     // if (!\Drupal::service('plugin.manager.mail')->mail('case_study', 'case_study_proposal_received', $email_to, 'en', $params, $form, TRUE)) {
     //   \Drupal::messenger()->addError('Error sending email message.');
     // }
+
+
+    	/* sending email */
+      
+   $email_to = $user->getEmail();
+
+    // Fetch configuration values
+$config = \Drupal::config('cfd_case_study.settings'); 
+
+$form = $config->get('case_study_from_email');
+$bcc = $config->get('case_study_emails');
+$cc = $config->get('case_study_cc_emails');
+
+// Prepare the email parameters
+$params['case_study_proposal_received']['result1'] = $result1;
+$params['case_study_proposal_received']['user_id'] = $user->uid;
+$params['case_study_proposal_received']['headers'] = [
+  'From' => $form,
+  'MIME-Version' => '1.0',
+  'Content-Type' => 'text/plain; charset=UTF-8; format=flowed; delsp=yes',
+  'Content-Transfer-Encoding' => '8Bit',
+  'X-Mailer' => 'Drupal',
+  'Cc' => $cc,
+  'Bcc' => $bcc,
+];
+
+// Sending the email using Drupal's mail manager service
+if (!\Drupal::service('plugin.manager.mail')->mail('case_study', 'case_study_proposal_received', $email_to, 'en', $params, $form, TRUE)) {
+  \Drupal::messenger()->addError('Error sending email message.');
+}
+    // Redirect to the front page
     $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
     // Send the redirect response
     $response->send();

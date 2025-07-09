@@ -99,7 +99,7 @@ class CfdCaseStudyUploadAbstractCodeForm extends FormBase {
             '#title' => t('Upload the Case Directory'),
             //'#required' => TRUE,
             '#description' => t('<span style="color:red;">Current File :</span> ' . $existing_uploaded_S_file->filename . '<br />Separate filenames with underscore. No spaces or any special characters allowed in filename.') . '<br />' . t('<span style="color:red;">Allowed file extensions : ')
-            // . variable_get('case_study_project_files_extensions', '') 
+             . \Drupal::config('cfd_case_study.settings')->get('case_study_upload_extensions') 
             . '</span>',
         );
 
@@ -110,9 +110,9 @@ class CfdCaseStudyUploadAbstractCodeForm extends FormBase {
     $form['submit'] = [
       '#type' => 'submit',
       '#value' => t('Submit'),
-      '#submit' => [
-        'cfd_case_study_upload_abstract_code_form_submit'
-        ],
+      // '#submit' => [
+      //   'submitForm'
+      //   ],
     ];
     // @FIXME
     // l() expects a Url object, created from a route name or external URI.
@@ -120,7 +120,13 @@ class CfdCaseStudyUploadAbstractCodeForm extends FormBase {
     //         '#type' => 'item',
     //         '#markup' => l(t('Cancel'), 'case-study-project/abstract-code'),
     //     );
-
+$form['cancel'] = [
+  '#type' => 'item',
+  '#markup' => Link::fromTextAndUrl(
+    t('Cancel'),
+    Url::fromUserInput('/case-study-project/abstract-code')
+  )->toString(),
+];
     return $form;
   }
 
@@ -171,7 +177,7 @@ $allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('case_
     $proposal_data = cfd_case_study_get_proposal();
     $proposal_id = $proposal_data->id;
     if (!$proposal_data) {
-      drupal_goto('');
+      // drupal_goto('');
       return;
     } //!$proposal_data
     $proposal_id = $proposal_data->id;

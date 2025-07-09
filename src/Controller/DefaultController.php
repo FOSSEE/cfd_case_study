@@ -121,89 +121,100 @@ public function cfd_case_study_proposal_pending() {
 
   return $output;
 }
-  public function cfd_case_study_proposal_all() {
-    /* get pending proposals to be approved */
-    $proposal_rows = [];
-    $query = \Drupal::database()->select('case_study_proposal');
-    $query->fields('case_study_proposal');
-    $query->orderBy('id', 'DESC');
-    $proposal_q = $query->execute();
-    while ($proposal_data = $proposal_q->fetchObject()) {
-      $approval_status = '';
-      switch ($proposal_data->approval_status) {
-        case 0:
-          $approval_status = 'Pending';
-          break;
-        case 1:
-          $approval_status = 'Approved';
-          break;
-        case 2:
-          $approval_status = 'Dis-approved';
-          break;
-        case 3:
-          $approval_status = 'Completed';
-          break;
-        case 5:
-          $approval_status = 'On Hold';
-          break;
-        default:
-          $approval_status = 'Unknown';
-          break;
-      } //$proposal_data->approval_status
-      if ($proposal_data->actual_completion_date == 0) {
-        $actual_completion_date = "Not Completed";
-      } //$proposal_data->actual_completion_date == 0
-      else {
-        $actual_completion_date = date('d-m-Y', $proposal_data->actual_completion_date);
-      }
-      if ($proposal_data->approval_date == 0) {
-        $approval_date = "Not Approved";
-      } //$proposal_data->actual_completion_date == 0
-      else {
-        $approval_date = date('d-m-Y', $proposal_data->approval_date);
-      }
-      // @FIXME
-      // l() expects a Url object, created from a route name or external URI.
-      // $proposal_rows[] = array(
-      //             date('d-m-Y', $proposal_data->creation_date),
-      //             l($proposal_data->contributor_name, 'user/' . $proposal_data->uid),
-      //             $proposal_data->project_title,
-      //             $approval_date,
-      //             $actual_completion_date,
-      //             $approval_status,
-      //             l('Status', 'case-study-project/manage-proposal/status/' . $proposal_data->id) . ' | ' . l('Edit', 'case-study-project/manage-proposal/edit/' . $proposal_data->id),
-      //         );
 
-    } //$proposal_data = $proposal_q->fetchObject()
-    /* check if there are any pending proposals */
-    if (!$proposal_rows) {
-      \Drupal::messenger()->addStatus(t('There are no proposals.'));
-      return '';
-    } //!$proposal_rows
-    $proposal_header = [
-      'Date of Submission',
-      'Student Name',
-      'Title of the case-study project',
-      'Date of Approval',
-      'Date of Project Completion',
+
+public function cfd_case_study_proposal_all() {
+  $proposal_rows = [];
+
+  $database = \Drupal::database(); // Ideally inject this.
+  $query = $database->select('case_study_proposal', 'csp')
+    ->fields('csp')
+    ->orderBy('id', 'DESC');
+  $proposal_q = $query->execute();
+
+  foreach ($proposal_q as $proposal_data) {
+    switch ($proposal_data->approval_status) {
+      case 0:
+        $approval_status = 'Pending';
+        break;
+      case 1:
+        $approval_status = 'Approved';
+        break;
+      case 2:
+        $approval_status = 'Dis-approved';
+        break;
+      case 3:
+        $approval_status = 'Completed';
+        break;
+      case 5:
+        $approval_status = 'On Hold';
+        break;
+      default:
+        $approval_status = 'Unknown';
+    }
+
+    $actual_completion_date = $proposal_data->actual_completion_date == 0 ? 
+      "Not Completed" : 
+      date('d-m-Y', $proposal_data->actual_completion_date);
+
+    $approval_date = $proposal_data->approval_date == 0 ? 
+      "Not Approved" : 
+      date('d-m-Y', $proposal_data->approval_date);
+
+    // Links
+    $user_link = Link::fromTextAndUrl(
+      $proposal_data->contributor_name,
+      Url::fromRoute('entity.user.canonical', ['user' => $proposal_data->uid])
+    )->toString();
+
+    $status_link = Link::fromTextAndUrl(
       'Status',
-      'Action',
-    ];
-    // @FIXME
-    // theme() has been renamed to _theme() and should NEVER be called directly.
-    // Calling _theme() directly can alter the expected output and potentially
-    // introduce security issues (see https://www.drupal.org/node/2195739). You
-    // should use renderable arrays instead.
-    // 
-    // 
-    // @see https://www.drupal.org/node/2195739
-    // $output = theme('table', array(
-    //         'header' => $proposal_header,
-    //         'rows' => $proposal_rows,
-    //     ));
+      Url::fromRoute('cfd_case_study.proposal_status_form', ['id' => $proposal_data->id])
+    )->toString();
 
-    return $output;
+    $edit_link = Link::fromTextAndUrl(
+      'Edit',
+      Url::fromRoute('cfd_case_study.proposal_edit_form', ['id' => $proposal_data->id])
+    )->toString();
+
+    $action_links = $status_link . ' | ' . $edit_link;
+
+    $proposal_rows[] = [
+      date('d-m-Y', $proposal_data->creation_date),
+      $user_link,
+      $proposal_data->project_title,
+      $approval_date,
+      $actual_completion_date,
+      $approval_status,
+      ['data' => ['#markup' => $action_links]],
+    ];
   }
+
+  if (empty($proposal_rows)) {
+    \Drupal::messenger()->addStatus(t('There are no proposals.'));
+    return [
+      '#markup' => t('No proposals found.'),
+    ];
+  }
+
+  $proposal_header = [
+    t('Date of Submission'),
+    t('Student Name'),
+    t('Title of the case-study project'),
+    t('Date of Approval'),
+    t('Date of Project Completion'),
+    t('Status'),
+    t('Action'),
+  ];
+
+  return [
+    '#type' => 'table',
+    '#header' => $proposal_header,
+    '#rows' => $proposal_rows,
+    '#empty' => t('No proposals available.'),
+  ];
+}
+
 
   public function cfd_case_study_proposal_edit_file_all() {
     /* get pending proposals to be approved */
@@ -431,7 +442,7 @@ public function cfd_case_study_completed_proposals_all() {
   $query = \Drupal::database()->select('case_study_proposal', 'csp');
   $query->fields('csp');
   $query->condition('approval_status', 3);
-  $query->orderBy('actual_completion_date', DESC);
+  $query->orderBy('actual_completion_date', 'DESC');
   $result = $query->execute();
   $records = $result->fetchAll();
 
@@ -493,7 +504,7 @@ public function cfd_case_study_completed_proposals_all() {
     $query->fields('case_study_proposal');
     $query->condition('approval_status', 1);
     $query->condition('is_completed', 0);
-    $query->orderBy('approval_date', DESC);
+    $query->orderBy('approval_date', 'DESC');
     $result = $query->execute();
     $records = $result->fetchAll();
     if (count($records) == 0) {
