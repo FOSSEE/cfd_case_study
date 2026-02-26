@@ -188,10 +188,10 @@ function cfd_case_study_abstract_bulk_approval_form_submit($form, &$form_state)
 						'Cc' => $cc,
 						'Bcc' => $bcc
 					);
-					if (!drupal_mail('case_study', 'standard', $email_to, language_default(), $params, $from, TRUE))
+					if (!drupal_mail('cfd_case_study', 'standard', $email_to, language_default(), $params, $from, TRUE))
 					{
 						$msg = \Drupal::messenger()->addError('Error sending email message.');
-					} //!drupal_mail('case_study', 'standard', $email_to, language_default(), $params, $from, TRUE)
+					} //!drupal_mail('cfd_case_study', 'standard', $email_to, language_default(), $params, $from, TRUE)
 				} //$form_state['values']['case_study_actions'] == 1
 				elseif ($form_state['values']['case_study_actions'] == 2)
 				{
@@ -278,10 +278,10 @@ function cfd_case_study_abstract_bulk_approval_form_submit($form, &$form_state)
 						'Cc' => $cc,
 						'Bcc' => $bcc
 					);
-					if (!drupal_mail('case_study', 'standard', $email_to, language_default(), $params, $from, TRUE))
+					if (!drupal_mail('cfd_case_study', 'standard', $email_to, language_default(), $params, $from, TRUE))
 					{
 						\Drupal::messenger()->addError('Error sending email message.');
-					} //!drupal_mail('case_study', 'standard', $email_to, language_default(), $params, $from, TRUE)
+					} //!drupal_mail('cfd_case_study', 'standard', $email_to, language_default(), $params, $from, TRUE)
 				} //$form_state['values']['case_study_actions'] == 2
 				elseif ($form_state['values']['case_study_actions'] == 3) //disapprove and delete entire case study project
 				{
@@ -358,7 +358,7 @@ function cfd_case_study_abstract_bulk_approval_form_submit($form, &$form_state)
 						'Cc' => $cc,
 						'Bcc' => $bcc
 					);
-					if (!drupal_mail('case_study', 'standard', $email_to, language_default(), $params, $from, TRUE))
+					if (!drupal_mail('cfd_case_study', 'standard', $email_to, language_default(), $params, $from, TRUE))
 					{
 						\Drupal::messenger()->addError('Error sending email message.');
 					}
@@ -407,6 +407,7 @@ function _bulk_list_case_study_actions()
 function _case_study_details($case_study_proposal_id)
 {
 	$return_html = "";
+	$download_case_study = '';
 	$query_pro = \Drupal::database()->select('case_study_proposal');
 	$query_pro->fields('case_study_proposal');
 	$query_pro->condition('id', $case_study_proposal_id);
@@ -472,11 +473,17 @@ function _case_study_details($case_study_proposal_id)
 	// @FIXME
 // l() expects a Url object, created from a route name or external URI.
 // $download_case_study = l('Download case study project','case-study-project/full-download/project/'.$case_study_proposal_id);
+	$download_case_study = \Drupal\Core\Link::fromTextAndUrl(
+		t('Download case study project'),
+		\Drupal\Core\Url::fromRoute('cfd_case_study.download_full_project', [], [
+			'query' => ['id' => $case_study_proposal_id],
+		])
+	)->toString();
 
 	$return_html .= '<strong>Proposer Name:</strong><br />' . $abstracts_pro->name_title . ' ' . $abstracts_pro->contributor_name . '<br /><br />';
 	$return_html .= '<strong>Title of the case study Project:</strong><br />' . $abstracts_pro->project_title . '<br /><br />';
 	$return_html .= '<strong>Uploaded an abstract (brief outline) of the project:</strong><br />' . $abstract_filename . '<br /><br />';
 	$return_html .= '<strong>Uploaded Case Directory Folder:</strong><br />' . $abstracts_query_process_filename . '<br /><br />';
-	$return_html .= $download_case_study;
+	$return_html .= '<strong>Download Case Study Project:</strong><br />' . $download_case_study;
 	return $return_html;
 }

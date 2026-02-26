@@ -10,9 +10,6 @@ namespace Drupal\cfd_case_study\Form;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
-use Drupal\Core\Ajax\AjaxResponse;
-use Drupal\Core\Ajax\ReplaceCommand;
-use Drupal\Core\Ajax\HtmlCommand;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Drupal\Core\Routing\TrustedRedirectResponse;
@@ -28,6 +25,7 @@ use Drupal\user\Entity\User;
 
 
 class CfdCaseStudyProposalForm extends FormBase {
+  private const MODIFIED_SIMULATION_TYPE_ID = 19;
 
   /**
    * {@inheritdoc}
@@ -335,52 +333,47 @@ class CfdCaseStudyProposalForm extends FormBase {
     $form['simulation_type'] = [
       '#type' => 'select',
       '#title' => t('Simulation Type used'),
-      '#options' =>_cs_list_of_simulation_types(),
+      '#options' => $simulation_type_options,
       '#required' => TRUE,
       '#ajax' => [
-        'callback' => '::ajax_solver_used_callback'
+        'callback' => '::ajax_solver_used_callback',
+        'event' => 'change',
+        'wrapper' => 'ajax-solver-wrapper',
+        'limit_validation_errors' => [['simulation_type']],
         ],
     ];
-    $simulation_id = $form_state->getValue('simulation_type') ?: key($simulation_type_options);
-    // $simulation_id = !$form_state->getValue(['simulation_type']) ? $form_state->getValue([
-    //   'simulation_type'
-    //   ]) : key($simulation_type_options);
-    if ($simulation_id < 19) {
-      $form['solver_used'] = [
+    $simulation_id = (int) ($form_state->getValue('simulation_type') ?: key($simulation_type_options));
+
+    $form['solver_wrapper'] = [
+      '#type' => 'container',
+      '#attributes' => ['id' => 'ajax-solver-wrapper'],
+    ];
+
+    if ($simulation_id < self::MODIFIED_SIMULATION_TYPE_ID) {
+      $solver_options = _cs_list_of_solvers($simulation_id);
+      unset($solver_options[0]);
+
+      $form['solver_wrapper']['solver_used'] = [
         '#type' => 'select',
         '#title' => t('Select the Solver to be used'),
-        '#options' => _cs_list_of_solvers($simulation_id),
-        '#prefix' => '<div id="ajax-solver-replace">',
-        '#suffix' => '</div>',
-        '#states' => [
-          'invisible' => [
-            ':input[name="simulation_type"]' => [
-              'value' => 19
-              ]
-            ]
-          ],
+        '#options' => $solver_options,
+        '#empty_option' => t('-Select-'),
+        '#empty_value' => '0',
         '#required' => TRUE,
+        '#parents' => ['solver_used'],
       ];
     }
-    // var_dump(_cs_list_of_solvers());die;
-    //else if ($simulation_id == 19){
-    $form['solver_used_text'] = [
-      '#type' => 'textfield',
-      '#title' => t('Enter the Solver to be used'),
-      '#size' => 100,
-      '#description' => t('Maximum character limit is 50'),
-      //'#required' => TRUE,
-		'#prefix' => '<div id="ajax-solver-text-replace">',
-      '#suffix' => '</div>',
-      '#states' => [
-        'visible' => [
-          ':input[name="simulation_type"]' => [
-            'value' => 19
-            ]
-          ]
-        ],
-    ];
-    //}
+    else {
+      $form['solver_wrapper']['solver_used_text'] = [
+        '#type' => 'textfield',
+        '#title' => t('Enter the Solver to be used'),
+        '#size' => 100,
+        '#description' => t('Maximum character limit is 50'),
+        '#required' => TRUE,
+        '#parents' => ['solver_used_text'],
+      ];
+    }
+
     $form['abstract_file'] = [
       '#type' => 'fieldset',
       '#title' => t('Submit an Abstract'),
@@ -397,29 +390,20 @@ class CfdCaseStudyProposalForm extends FormBase {
     $form['date_of_proposal'] = [
       '#type' => 'date',
       '#title' => t('Date of Proposal'),
-      '#default_value' => date("Y-m-d H:i:s"),
-      '#date_format' => 'd M Y',
+      '#default_value' => date('Y-m-d'),
       '#disabled' => TRUE,
-      '#date_label_position' => '',
     ];
     $form['expected_date_of_completion'] = [
       '#type' => 'date',
       '#title' => t('Expected Date of Completion'),
-      '#date_label_position' => '',
       '#description' => '',
       '#default_value' => '',
-      '#date_format' => 'd-M-Y',
-      //'#date_increment' => 0,
-      //'#minDate' => '+0',
-		'#date_year_range' => '0 : +1',
       '#required' => TRUE,
     ];
     $form['term_condition'] = [
-      '#type' => 'checkboxes',
-      '#title' => t('Terms And Conditions'),
-      '#options' => [
-        'status' => t('<a href="/case-study-project/term-and-conditions" target="_blank">I agree to the Terms and Conditions</a>')
-        ],
+      '#type' => 'checkbox',
+      '#title' => t('I agree to the Terms and Conditions'),
+      '#description' => t('<a href="/case-study-project/term-and-conditions" target="_blank">View Terms and Conditions</a>'),
       '#required' => TRUE,
     ];
     $form['submit'] = [
@@ -429,39 +413,13 @@ class CfdCaseStudyProposalForm extends FormBase {
     return $form;
   }
 
-  function ajax_solver_used_callback(array &$form, FormStateInterface $form_state) {
-    return  $form['solver_used'];
-  }
   // function ajax_solver_used_callback(array &$form, FormStateInterface $form_state) {
-  //     $simulation_type_options = _cs_simulation_type_options(); // Assuming this is a function returning simulation options
-  //     $simulation_id = $form_state->getValue('simulation_type', key($simulation_type_options));
-      
-  //     $response = new AjaxResponse();
-  
-  //     if ($simulation_id < 19) {
-  //         // Update the 'solver_used' field options dynamically.
-  //         $form['solver_used']['#options'] = _cs_list_of_solvers($simulation_id);
-  //         $form['solver_used']['#required'] = TRUE;
-  //         $form['solver_used']['#validated'] = TRUE;
-  
-  //         // Replace the 'solver_used' section of the form.
-  //         $response->addCommand(new ReplaceCommand('#ajax-solver-replace', $form['solver_used']));
-  //         // Clear any existing text in the solver text section.
-  //         $response->addCommand(new HtmlCommand('#ajax-solver-text-replace', ''));
-  //     } else {
-  //         // Clear the 'solver_used' section.
-  //         $response->addCommand(new HtmlCommand('#ajax-solver-replace', ''));
-  
-  //         // Make 'solver_used_text' required and validated.
-  //         $form['solver_used_text']['#required'] = TRUE;
-  //         $form['solver_used_text']['#validated'] = TRUE;
-  
-  //         // Replace the 'solver_used_text' section of the form.
-  //         $response->addCommand(new ReplaceCommand('#ajax-solver-text-replace', $form['solver_used_text']));
-  //     }
-  
-  //     return $response;
+  //   return  $form['solver_used'];
   // }
+  public function ajax_solver_used_callback(array &$form, FormStateInterface $form_state) {
+    $form_state->setRebuild(TRUE);
+    return $form['solver_wrapper'];
+  }
   
 
   public function validateForm(array &$form, \Drupal\Core\Form\FormStateInterface $form_state) {
@@ -475,10 +433,9 @@ class CfdCaseStudyProposalForm extends FormBase {
 
       $project_title = $form_state->getValue(['project_title']);
     }
-    if ($form_state->getValue(['term_condition']) == '1') {
-      $form_state->setErrorByName('term_condition', t('Please check the terms and conditions'));
-      // $form_state['values']['country'] = $form_state['values']['other_country'];
-    } //$form_state['values']['term_condition'] == '1'
+    if (!$form_state->getValue('term_condition')) {
+      $form_state->setErrorByName('term_condition', t('Please accept the terms and conditions'));
+    }
     if ($form_state->getValue([
       'country'
       ]) == 'Others') {
@@ -545,30 +502,33 @@ class CfdCaseStudyProposalForm extends FormBase {
 		form_set_error('project_title', t('Project title shoud not be empty'));
 	}*/
 
-    if ($form_state->getValue(['simulation_type']) < 19) {
-      if ($form_state->getValue(['solver_used']) == '0') {
+    $simulation_id = (int) $form_state->getValue(['simulation_type']);
+    if ($simulation_id < self::MODIFIED_SIMULATION_TYPE_ID) {
+      if ($form_state->getValue(['solver_used']) == '0' || $form_state->getValue(['solver_used']) === NULL) {
         $form_state->setErrorByName('solver_used', t('Please select an option'));
       }
     }
     else {
-      if ($form_state->getValue(['simulation_type']) == 19) {
-        if ($form_state->getValue(['solver_used_text']) != '') {
-          if (strlen($form_state->getValue(['solver_used_text'])) > 100) {
-            $form_state->setErrorByName('solver_used_text', t('Maximum charater limit is 100 charaters only, please check the length of the solver used'));
-          } //strlen($form_state['values']['project_title']) > 250
-          else {
-            if (strlen($form_state->getValue(['solver_used_text'])) < 7) {
-              $form_state->setErrorByName('solver_used_text', t('Minimum charater limit is 7 charaters, please check the length of the solver used'));
-            }
-          } //strlen($form_state['values']['project_title']) < 10
-        }
+      if ($form_state->getValue(['solver_used_text']) != '') {
+        if (strlen($form_state->getValue(['solver_used_text'])) > 100) {
+          $form_state->setErrorByName('solver_used_text', t('Maximum charater limit is 100 charaters only, please check the length of the solver used'));
+        } //strlen($form_state['values']['project_title']) > 250
         else {
-          $form_state->setErrorByName('solver_used_text', t('Solver used cannot be empty'));
+          if (strlen($form_state->getValue(['solver_used_text'])) < 7) {
+            $form_state->setErrorByName('solver_used_text', t('Minimum charater limit is 7 charaters, please check the length of the solver used'));
+          }
         }
+      } //strlen($form_state['values']['project_title']) < 10
+      else {
+        $form_state->setErrorByName('solver_used_text', t('Solver used cannot be empty'));
       }
     }
-    if (strtotime(date($form_state->getValue(['expected_date_of_completion']))) < time()) {
-      $form_state->setErrorByName('expected_date_of_completion', t('Completion date should not be earlier than proposal date'));
+    $expected_completion_value = $form_state->getValue(['expected_date_of_completion']);
+    if (!empty($expected_completion_value)) {
+      $expected_completion_timestamp = strtotime($expected_completion_value);
+      if ($expected_completion_timestamp !== FALSE && $expected_completion_timestamp < strtotime('today')) {
+        $form_state->setErrorByName('expected_date_of_completion', t('Completion date should not be earlier than proposal date'));
+      }
     }
 
     if ($form_state->getValue(['how_did_you_know_about_project']) == 'Others') {
@@ -592,38 +552,25 @@ class CfdCaseStudyProposalForm extends FormBase {
 		}
 	}*/
 
-    if (isset($_FILES['files'])) {
-      /* check if atleast one source or result file is uploaded */
-      if (!($_FILES['files']['name']['abstract_file_path'])) {
-        $form_state->setErrorByName('abstract_file_path', t('Please upload the abstract file'));
-      }
-      /* check for valid filename extensions */
-      foreach ($_FILES['files']['name'] as $file_form_name => $file_name) {
-        if ($file_name) {
-          /* checking file type */
-          // @FIXME
-// // @FIXME
-// // This looks like another module's variable. You'll need to rewrite this call
-// // to ensure that it uses the correct configuration object.
-$allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('resource_upload_extensions');
-
-          $allowed_extensions = explode(',', $allowed_extensions_str);
-          $fnames = explode('.', strtolower($_FILES['files']['name'][$file_form_name]));
-          $temp_extension = end($fnames);
-          if (!in_array($temp_extension, $allowed_extensions)) {
-            $form_state->setErrorByName($file_form_name, t('Only file with ' . $allowed_extensions_str . ' extensions can be uploaded.'));
-          }
-          if ($_FILES['files']['size'][$file_form_name] <= 0) {
-            $form_state->setErrorByName($file_form_name, t('File size cannot be zero.'));
-          }
-          /* check if valid file name */
-          if (!textbook_companion_check_valid_filename($_FILES['files']['name'][$file_form_name])) {
-            $form_state->setErrorByName($file_form_name, t('Invalid file name specified. Only alphabets and numbers are allowed as a valid filename.'));
-          }
-        } //$file_name
-      } //$_FILES['files']['name'] as $file_form_name => $file_name
+    $files = \Drupal::request()->files->get('files') ?? [];
+    $upload = $files['abstract_file_path'] ?? NULL;
+    if (!$upload || !$upload->isValid()) {
+      $form_state->setErrorByName('abstract_file_path', t('Please upload the abstract file'));
+      return;
     }
-    return $form_state;
+    $allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('resource_upload_extensions');
+    $allowed_extensions = array_filter(array_map('trim', explode(',', (string) $allowed_extensions_str)));
+    $original_name = (string) $upload->getClientOriginalName();
+    $temp_extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
+    if (!empty($allowed_extensions) && !in_array($temp_extension, $allowed_extensions, TRUE)) {
+      $form_state->setErrorByName('abstract_file_path', t('Only file with ' . $allowed_extensions_str . ' extensions can be uploaded.'));
+    }
+    if ($upload->getSize() <= 0) {
+      $form_state->setErrorByName('abstract_file_path', t('File size cannot be zero.'));
+    }
+    if (!cfd_case_study_check_valid_filename($original_name)) {
+      $form_state->setErrorByName('abstract_file_path', t('Invalid file name specified. Only alphabets and numbers are allowed as a valid filename.'));
+    }
   }
 
   public function submitForm(array &$form, \Drupal\Core\Form\FormStateInterface $form_state) {
@@ -653,182 +600,104 @@ $allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('resou
     $proposar_name = $v['name_title'] . ' ' . $v['contributor_name'];
     $university = $v['university'];
     $directory_name = _df_dir_name($project_title, $proposar_name);
-    $simulation_id = $v['simulation_type'];
-    if ($simulation_id < 19) {
+    $simulation_id = (int) $v['simulation_type'];
+    if ($simulation_id < self::MODIFIED_SIMULATION_TYPE_ID) {
       $solver = $v['solver_used'];
     }
     else {
       $solver = $v['solver_used_text'];
     }
-    $result = "INSERT INTO {case_study_proposal} 
-    (
-    uid, 
-    approver_uid,
-    name_title, 
-    contributor_name,
-    contact_no,
-    university,
-    institute,
-    how_did_you_know_about_project,
-    faculty_name,
-    faculty_department,
-    faculty_email,
-    city, 
-    pincode, 
-    state, 
-    country,
-    project_title, 
-    version_id,
-    simulation_type_id,
-    solver_used,
-    directory_name,
-    approval_status,
-    is_completed, 
-    dissapproval_reason,
-    creation_date, 
-    expected_date_of_completion,
-    approval_date
-    ) VALUES
-    (
-    :uid, 
-    :approver_uid, 
-    :name_title, 
-    :contributor_name, 
-    :contact_no,
-    :university, 
-    :institute,
-    :how_did_you_know_about_project,
-    :faculty_name,
-    :faculty_department,
-    :faculty_email,
-    :city, 
-    :pincode, 
-    :state,  
-    :country,
-    :project_title, 
-    :version_id,
-    :simulation_type_id,
-    :solver_used,
-    :directory_name,
-    :approval_status,
-    :is_completed, 
-    :dissapproval_reason,
-    :creation_date, 
-    :expected_date_of_completion,
-    :approval_date
-    )";
-    $args = [
-      ":uid" => $user->id(),
-      ":approver_uid" => 0,
-      ":name_title" => $v['name_title'],
-      ":contributor_name" => _df_sentence_case(trim($v['contributor_name'])),
-      ":contact_no" => $v['contributor_contact_no'],
-      ":university" => $v['university'],
-      ":institute" => _df_sentence_case($v['institute']),
-      ":how_did_you_know_about_project" => trim($how_did_you_know_about_project),
-      ":faculty_name" => $v['faculty_name'],
-      ":faculty_department" => $v['faculty_department'],
-      ":faculty_email" => $v['faculty_email'],
-      ":city" => $v['city'],
-      ":pincode" => $v['pincode'],
-      ":state" => $v['all_state'],
-      ":country" => $v['country'],
-      ":project_title" => $project_title,
-      ":version_id" => $v['version'],
-      ":simulation_type_id" => $simulation_id,
-      ":solver_used" => $solver,
-      ":directory_name" => $directory_name,
-      ":approval_status" => 0,
-      ":is_completed" => 0,
-      ":dissapproval_reason" => "NULL",
-      ":creation_date" => time(),
-      ":expected_date_of_completion" => strtotime(date($v['expected_date_of_completion'])),
-      ":approval_date" => 0,
-    ];
-    $result1 = \Drupal::database()->query($result, $args);
-    //var_dump($result1->id);die;
-    $query_pro = \Drupal::database()->select('case_study_proposal');
-    $query_pro->fields('case_study_proposal');
-    //	$query_pro->condition('id', $proposal_data->id);
-    $abstracts_pro = $query_pro->execute()->fetchObject();
-    //	$proposal_id = $abstracts_pro->id;
+    $expected_completion_timestamp = !empty($v['expected_date_of_completion']) ? strtotime($v['expected_date_of_completion']) : 0;
+    $connection = \Drupal::database();
+    $proposal_id = $connection->insert('case_study_proposal')
+      ->fields([
+        'uid' => $user->id(),
+        'approver_uid' => 0,
+        'name_title' => $v['name_title'],
+        'contributor_name' => _df_sentence_case(trim($v['contributor_name'])),
+        'contact_no' => $v['contributor_contact_no'],
+        'university' => $v['university'],
+        'institute' => _df_sentence_case($v['institute']),
+        'how_did_you_know_about_project' => trim($how_did_you_know_about_project),
+        'faculty_name' => $v['faculty_name'],
+        'faculty_department' => $v['faculty_department'],
+        'faculty_email' => $v['faculty_email'],
+        'city' => $v['city'],
+        'pincode' => $v['pincode'],
+        'state' => $v['all_state'],
+        'country' => $v['country'],
+        'project_title' => $project_title,
+        'version_id' => $v['version'],
+        'simulation_type_id' => $simulation_id,
+        'solver_used' => $solver,
+        'directory_name' => $directory_name,
+        'approval_status' => 0,
+        'is_completed' => 0,
+        'dissapproval_reason' => NULL,
+        'creation_date' => time(),
+        'expected_date_of_completion' => $expected_completion_timestamp,
+        'approval_date' => 0,
+      ])
+      ->execute();
+
+    if (!$proposal_id) {
+      \Drupal::messenger()->addError(t('Error receiving your proposal. Please try again.'));
+      return;
+    }
+
     $dest_path = $directory_name . '/';
-    $dest_path1 = $root_path . $dest_path;
     if (!is_dir($root_path . $dest_path)) {
       mkdir($root_path . $dest_path);
     }
     /* uploading files */
-    foreach ($_FILES['files']['name'] as $file_form_name => $file_name) {
-      if ($file_name) {
-        /* checking file type */
-        //$file_type = 'S';
-        if (file_exists($root_path . $dest_path . $_FILES['files']['name'][$file_form_name])) {
-          \Drupal::messenger()->addError(t("Error uploading file. File !filename already exists.", [
-            '!filename' => $_FILES['files']['name'][$file_form_name]
-            ]));
-          //unlink($root_path . $dest_path . $_FILES['files']['name'][$file_form_name]);
-        } //file_exists($root_path . $dest_path . $_FILES['files']['name'][$file_form_name])
-			/* uploading file */
-        if (move_uploaded_file($_FILES['files']['tmp_name'][$file_form_name], $root_path . $dest_path . $_FILES['files']['name'][$file_form_name])) {
-          $query_pro = \Drupal::database()->select('case_study_proposal');
-          $query_pro->fields('case_study_proposal');
-          //$query_pro->condition('id', $proposal_data->id);
-          $abstracts_pro = $query_pro->execute()->fetchObject();
-          //$proposal_id = $abstracts_pro->id;
-          //var_dump($proposal_id);die;
-          //$proposal_id = $result1->id;
-          $query_abstracts = "INSERT INTO {case_study_submitted_abstracts} (
-	proposal_id,
-	approver_uid,
-	abstract_approval_status,
-	abstract_upload_date,
-	abstract_approval_date,
-	is_submitted) 
-  VALUES (:proposal_id, :approver_uid, :abstract_approval_status,:abstract_upload_date, :abstract_approval_date, :is_submitted)";
-          $args = [
-            ":proposal_id" => $result1,
-            ":approver_uid" => 0,
-            ":abstract_approval_status" => 0,
-            ":abstract_upload_date" => time(),
-            ":abstract_approval_date" => 0,
-            ":is_submitted" => 0,
-          ];
-          $submitted_abstract_id = \Drupal::database()->query($query_abstracts, $args, $query_abstracts);
-          $query = "INSERT INTO {case_study_submitted_abstracts_file} (submitted_abstract_id, proposal_id, uid, approvar_uid, filename, filepath, filemime, filesize, filetype, timestamp)
-          VALUES (:submitted_abstract_id, :proposal_id, :uid, :approvar_uid, :filename, :filepath, :filemime, :filesize, :filetype, :timestamp)";
-          $args = [
-            ":submitted_abstract_id" => $submitted_abstract_id,
-            ":proposal_id" => $result1,
-            ":uid" => $user->uid,
-            ":approvar_uid" => 0,
-            ":filename" => $_FILES['files']['name'][$file_form_name],
-            ":filepath" => $_FILES['files']['name'][$file_form_name],
-            ":filemime" => mime_content_type($root_path . $dest_path . $_FILES['files']['name'][$file_form_name]),
-            ":filesize" => $_FILES['files']['size'][$file_form_name],
-            ":filetype" => 'A',
-            ":timestamp" => time(),
-          ];
+    $files = \Drupal::request()->files->get('files') ?? [];
+    $upload = $files['abstract_file_path'] ?? NULL;
+    if ($upload && $upload->isValid()) {
+      $file_system = \Drupal::service('file_system');
+      $target_dir = $root_path . $dest_path;
+      $file_system->prepareDirectory($target_dir, \Drupal\Core\File\FileSystemInterface::CREATE_DIRECTORY | \Drupal\Core\File\FileSystemInterface::MODIFY_PERMISSIONS);
+      $original_name = $file_system->basename($upload->getClientOriginalName());
+      $target_path = $target_dir . $original_name;
 
-          /*$query = "UPDATE {case_study_proposal} SET abstract_file_path = :abstract_file_path WHERE id = :id";
-				$args = array(
-					":abstract_file_path" => $dest_path . $_FILES['files']['name'][$file_form_name],
-					":id" => $result1
-				);*/
-
-          $updateresult = \Drupal::database()->query($query, $args);
-          //var_dump($args);die;
-
-          \Drupal::messenger()->addStatus($file_name . ' uploaded successfully.');
-        } //move_uploaded_file($_FILES['files']['tmp_name'][$file_form_name], $root_path . $dest_path . $_FILES['files']['name'][$file_form_name])
-        else {
-          \Drupal::messenger()->addError('Error uploading file : ' . $dest_path . '/' . $file_name);
+      if (file_exists($target_path)) {
+        $this->messenger()->addError($this->t('Error uploading file. File @filename already exists.', ['@filename' => $original_name]));
+      }
+      else {
+        try {
+          $upload->move($target_dir, $original_name);
+          $submitted_abstract_id = $connection->insert('case_study_submitted_abstracts')
+            ->fields([
+              'proposal_id' => $proposal_id,
+              'approver_uid' => 0,
+              'abstract_approval_status' => 0,
+              'abstract_upload_date' => time(),
+              'abstract_approval_date' => 0,
+              'is_submitted' => 0,
+            ])
+            ->execute();
+          $filemime = \Drupal::service('file.mime_type.guesser')->guessMimeType($target_path) ?: $upload->getClientMimeType();
+          $filesize = filesize($target_path);
+          $connection->insert('case_study_submitted_abstracts_file')
+            ->fields([
+              'submitted_abstract_id' => $submitted_abstract_id,
+              'proposal_id' => $proposal_id,
+              'uid' => $user->id(),
+              'approvar_uid' => 0,
+              'filename' => $original_name,
+              'filepath' => $original_name,
+              'filemime' => $filemime,
+              'filesize' => $filesize,
+              'filetype' => 'A',
+              'timestamp' => time(),
+            ])
+            ->execute();
+          $this->messenger()->addStatus($this->t('@filename uploaded successfully.', ['@filename' => $original_name]));
         }
-      } //$file_name
-    } //$_FILES['files']['name'] as $file_form_name => $file_name
-    if (!$result1) {
-      \Drupal::messenger()->addError(t('Error receiving your proposal. Please try again.'));
-      return;
-    } //!$proposal_id
+        catch (\Exception $e) {
+          $this->messenger()->addError($this->t('Error uploading file : @filename', ['@filename' => $original_name]));
+        }
+      }
+    }
 	/* sending email */
    // $email_to = $user->mail;
     // @FIXME
@@ -849,7 +718,7 @@ $allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('resou
     // // to ensure that it uses the correct configuration object.
     // $cc = variable_get('case_study_cc_emails', '');
 
-    // $params['case_study_proposal_received']['result1'] = $result1;
+    // $params['case_study_proposal_received']['proposal_id'] = $proposal_id;
     // $params['case_study_proposal_received']['user_id'] = $user->uid;
     // $params['case_study_proposal_received']['headers'] = [
     //   'From' => $form,
@@ -860,7 +729,7 @@ $allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('resou
     //   'Cc' => $cc,
     //   'Bcc' => $bcc,
     // ];
-    // if (!\Drupal::service('plugin.manager.mail')->mail('case_study', 'case_study_proposal_received', $email_to, 'en', $params, $form, TRUE)) {
+    // if (!\Drupal::service('plugin.manager.mail')->mail('cfd_case_study', 'case_study_proposal_received', $email_to, 'en', $params, $form, TRUE)) {
     //   \Drupal::messenger()->addError('Error sending email message.');
     // }
 
@@ -872,32 +741,46 @@ $allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('resou
     // Fetch configuration values
 $config = \Drupal::config('cfd_case_study.settings'); 
 
-$form = $config->get('case_study_from_email');
+$from = $config->get('case_study_from_email') ?: \Drupal::config('system.site')->get('mail');
+if (empty($from)) {
+  $from = 'no-reply@localhost';
+}
 $bcc = $config->get('case_study_emails');
 $cc = $config->get('case_study_cc_emails');
 
 // Prepare the email parameters
-$params['case_study_proposal_received']['result1'] = $result1;
-$params['case_study_proposal_received']['user_id'] = $user->uid;
-$params['case_study_proposal_received']['headers'] = [
-  'From' => $form,
+$params['case_study_proposal_received']['proposal_id'] = $proposal_id;
+$params['case_study_proposal_received']['user_id'] = $user->id();
+$headers = [
+  'From' => $from,
   'MIME-Version' => '1.0',
   'Content-Type' => 'text/plain; charset=UTF-8; format=flowed; delsp=yes',
   'Content-Transfer-Encoding' => '8Bit',
   'X-Mailer' => 'Drupal',
-  'Cc' => $cc,
-  'Bcc' => $bcc,
 ];
+if (!empty($cc)) {
+  $headers['Cc'] = $cc;
+}
+if (!empty($bcc)) {
+  $headers['Bcc'] = $bcc;
+}
+$params['case_study_proposal_received']['headers'] = $headers;
 
 // Sending the email using Drupal's mail manager service
-if (!\Drupal::service('plugin.manager.mail')->mail('case_study', 'case_study_proposal_received', $email_to, 'en', $params, $form, TRUE)) {
-  \Drupal::messenger()->addError('Error sending email message.');
+$langcode = $user->getPreferredLangcode() ?: \Drupal::languageManager()->getDefaultLanguage()->getId();
+if ($email_to) {
+  $result = \Drupal::service('plugin.manager.mail')->mail('cfd_case_study', 'case_study_proposal_received', $email_to, $langcode, $params, $from, TRUE);
+  if (empty($result['result'])) {
+    \Drupal::messenger()->addError('Error sending email message.');
+  }
 }
     // Redirect to the front page
-    $response = new RedirectResponse(Url::fromRoute('<front>')->toString());
-    // Send the redirect response
-    $response->send();
+    $form_state->setRedirectUrl(Url::fromRoute('<front>'));
     \Drupal::messenger()->addStatus(t('We have received your case study proposal. We will get back to you soon.'));
+    \Drupal\Core\Cache\Cache::invalidateTags([
+      'case_study_proposal_list',
+      "case_study_proposal:$proposal_id",
+    ]);
     // drupal_goto('');
   }
 

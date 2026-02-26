@@ -451,6 +451,10 @@ function cfd_case_study_check_code_number($number = '')
     }
 
 }
+// function cfd_case_study_check_valid_filename($file_name = '')
+// {
+//     return (bool) preg_match('/^[A-Za-z0-9._-]+$/', $file_name);
+// }
 function cfd_case_study_path()
 {
     return $_SERVER['DOCUMENT_ROOT'] . base_path() . 'cfd_uploads/case_study_uploads/';
@@ -467,9 +471,10 @@ function cfd_case_study_project_titles_resource_file_path()
 function cfd_case_study_get_proposal()
 {
     $user = \Drupal::currentUser();
+    $uid = $user->id();
     $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
-    $query->condition('uid', $user->uid);
+    $query->condition('uid', $uid);
     $query->orderBy('id', 'DESC');
     $query->range(0, 1);
     $proposal_q = $query->execute();
@@ -582,13 +587,23 @@ function _df_list_of_departments()
     return $department;
 }
 
-function _cs_list_of_case_studies()
-{
-    $existing_case_studies = array();
-    $result = \Drupal::database()->query("SELECT * from list_of_project_titles WHERE {project_title_name} NOT IN( SELECT  project_title from case_study_proposal WHERE approval_status = 0 OR approval_status = 1 OR approval_status = 3)");
+function _cs_list_of_case_studies() {
+    $existing_case_studies = [];
+    $connection = \Drupal::database();
+
+    $proposal_titles = $connection->select('case_study_proposal', 'csp')
+        ->fields('csp', ['project_title'])
+        ->condition('approval_status', [0, 1, 3], 'IN');
+
+    $query = $connection->select('list_of_project_titles', 'lpt')
+        ->fields('lpt', ['project_title_name']);
+    $query->condition('project_title_name', $proposal_titles, 'NOT IN');
+
+    $result = $query->execute();
     while ($case_study_list_data = $result->fetchObject()) {
         $existing_case_studies[$case_study_list_data->project_title_name] = $case_study_list_data->project_title_name;
     }
+
     return $existing_case_studies;
 }
 
@@ -756,4 +771,254 @@ function textbook_companion_check_valid_filename($file_name)
         return FALSE;
     else
         return TRUE;
+}
+
+/**
+ * Implements hook_mail().
+ */
+function cfd_case_study_mail($key, &$message, $params)
+{
+    $payload = (isset($params[$key]) && is_array($params[$key])) ? $params[$key] : array();
+
+    if (!empty($payload['headers']) && is_array($payload['headers'])) {
+        $message['headers'] = $payload['headers'];
+    }
+
+    if ($key === 'standard') {
+        $message['subject'] = (string) ($payload['subject'] ?? '');
+        $body = $payload['body'] ?? '';
+        $message['body'] = is_array($body) ? $body : array((string) $body);
+        return;
+    }
+
+    $langcode = $message['langcode'] ?? \Drupal::languageManager()->getDefaultLanguage()->getId();
+    $site_name = \Drupal::config('system.site')->get('name') ?: 'FOSSEE';
+
+    $proposal_id = $payload['proposal_id'] ?? $payload['result1'] ?? NULL;
+    $proposal_data = cfd_case_study_load_proposal_for_mail($proposal_id);
+
+    $user_data = NULL;
+    if (!empty($payload['user_id'])) {
+        $user_data = \Drupal::entityTypeManager()->getStorage('user')->load((int) $payload['user_id']);
+    }
+    $user_name = $user_data ? $user_data->getDisplayName() : t('Contributor', array(), array('langcode' => $langcode));
+    $user_email = $user_data ? $user_data->getEmail() : '';
+    $proposal_lines = cfd_case_study_build_common_proposal_lines($proposal_data, $user_email, $langcode);
+
+    switch ($key) {
+        case 'case_study_proposal_received':
+            $message['subject'] = t('[@site_name][Case Study Project] Your case study proposal has been received', array('@site_name' => $site_name), array('langcode' => $langcode));
+            $message['body'] = array(
+                t('Dear @user_name,', array('@user_name' => $user_name), array('langcode' => $langcode)),
+                '',
+                t('We have received your case study proposal with the following details:', array(), array('langcode' => $langcode)),
+            );
+            $message['body'] = array_merge($message['body'], $proposal_lines, array(
+                '',
+                t('Your proposal is under review. You will receive an email once it is approved or disapproved.', array(), array('langcode' => $langcode)),
+                '',
+                t('Best wishes,', array(), array('langcode' => $langcode)),
+                '',
+                t('@site_name Team', array('@site_name' => $site_name), array('langcode' => $langcode)),
+                'FOSSEE, IIT Bombay',
+            ));
+            break;
+
+        case 'case_study_proposal_disapproved':
+            $reason = cfd_case_study_mail_value(($proposal_data && isset($proposal_data->dissapproval_reason)) ? $proposal_data->dissapproval_reason : '');
+            $message['subject'] = t('[@site_name][Case Study Project] Your case study proposal has been disapproved', array('@site_name' => $site_name), array('langcode' => $langcode));
+            $message['body'] = array(
+                t('Dear @user_name,', array('@user_name' => $user_name), array('langcode' => $langcode)),
+                '',
+                t('We regret to inform you that your case study proposal has been disapproved.', array(), array('langcode' => $langcode)),
+                '',
+            );
+            $message['body'] = array_merge($message['body'], $proposal_lines, array(
+                '',
+                t('Reason for rejection: @reason', array('@reason' => $reason), array('langcode' => $langcode)),
+                '',
+                t('You are welcome to submit a new proposal.', array(), array('langcode' => $langcode)),
+                '',
+                t('Best wishes,', array(), array('langcode' => $langcode)),
+                '',
+                t('@site_name Team', array('@site_name' => $site_name), array('langcode' => $langcode)),
+                'FOSSEE, IIT Bombay',
+            ));
+            break;
+
+        case 'case_study_proposal_approved':
+            $upload_url = '/case-study-project/abstract-code/upload';
+            try {
+                $upload_url = \Drupal\Core\Url::fromRoute('cfd_case_study.upload_abstract_code_form', array(), array('absolute' => TRUE))->toString();
+            } catch (\Exception $exception) {
+            }
+            $message['subject'] = t('[@site_name][Case Study Project] Your case study proposal has been approved', array('@site_name' => $site_name), array('langcode' => $langcode));
+            $message['body'] = array(
+                t('Dear @user_name,', array('@user_name' => $user_name), array('langcode' => $langcode)),
+                '',
+                t('Your case study proposal has been approved with the following details:', array(), array('langcode' => $langcode)),
+                '',
+            );
+            $message['body'] = array_merge($message['body'], $proposal_lines, array(
+                '',
+                t('You can upload your project files at: @url', array('@url' => $upload_url), array('langcode' => $langcode)),
+                '',
+                t('Best wishes,', array(), array('langcode' => $langcode)),
+                '',
+                t('@site_name Team', array('@site_name' => $site_name), array('langcode' => $langcode)),
+                'FOSSEE, IIT Bombay',
+            ));
+            break;
+
+        case 'case_study_proposal_completed':
+            $message['subject'] = t('[@site_name][Case Study Project] Your case study proposal has been marked as completed', array('@site_name' => $site_name), array('langcode' => $langcode));
+            $message['body'] = array(
+                t('Dear @user_name,', array('@user_name' => $user_name), array('langcode' => $langcode)),
+                '',
+                t('Your case study and abstract submission has been marked as completed successfully.', array(), array('langcode' => $langcode)),
+                '',
+            );
+            $message['body'] = array_merge($message['body'], $proposal_lines, array(
+                '',
+                t('Best wishes,', array(), array('langcode' => $langcode)),
+                '',
+                t('@site_name Team', array('@site_name' => $site_name), array('langcode' => $langcode)),
+                'FOSSEE, IIT Bombay',
+            ));
+            break;
+
+        case 'case_study_proposal_deleted':
+            $message['subject'] = t('[@site_name][Case Study Project] Your case study proposal has been deleted', array('@site_name' => $site_name), array('langcode' => $langcode));
+            $message['body'] = array(
+                t('Dear @user_name,', array('@user_name' => $user_name), array('langcode' => $langcode)),
+                '',
+                t('Your case study proposal has been deleted with the following details:', array(), array('langcode' => $langcode)),
+                '',
+            );
+            $message['body'] = array_merge($message['body'], $proposal_lines, array(
+                '',
+                t('You can submit a new case study proposal anytime.', array(), array('langcode' => $langcode)),
+                '',
+                t('Best wishes,', array(), array('langcode' => $langcode)),
+                '',
+                t('@site_name Team', array('@site_name' => $site_name), array('langcode' => $langcode)),
+                'FOSSEE, IIT Bombay',
+            ));
+            break;
+
+        case 'abstract_uploaded':
+            $project_title = cfd_case_study_mail_value(($proposal_data && isset($proposal_data->project_title)) ? $proposal_data->project_title : '');
+            $message['subject'] = t('[@site_name][Case Study Project] Project files uploaded', array('@site_name' => $site_name), array('langcode' => $langcode));
+            $message['body'] = array(
+                t('Dear @user_name,', array('@user_name' => $user_name), array('langcode' => $langcode)),
+                '',
+                t('You have uploaded abstract and project files for the following case study:', array(), array('langcode' => $langcode)),
+                t('Project Title: @title', array('@title' => $project_title), array('langcode' => $langcode)),
+                '',
+                t('The files are under review. You will be notified after review.', array(), array('langcode' => $langcode)),
+                '',
+                t('Best wishes,', array(), array('langcode' => $langcode)),
+                '',
+                t('@site_name Team', array('@site_name' => $site_name), array('langcode' => $langcode)),
+                'FOSSEE, IIT Bombay',
+            );
+            break;
+
+        case 'abstract_edit_file_uploaded':
+            $project_title = cfd_case_study_mail_value(($proposal_data && isset($proposal_data->project_title)) ? $proposal_data->project_title : '');
+            $abs_file_name = cfd_case_study_mail_value($payload['abs_file'] ?? '');
+            $proj_file_name = cfd_case_study_mail_value($payload['proj_file'] ?? '');
+            $message['subject'] = t('[@site_name][Case Study Project] Case study files updated', array('@site_name' => $site_name), array('langcode' => $langcode));
+            $message['body'] = array(
+                t('Dear @user_name,', array('@user_name' => $user_name), array('langcode' => $langcode)),
+                '',
+                t('You have updated files for the following case study:', array(), array('langcode' => $langcode)),
+                t('Project Title: @title', array('@title' => $project_title), array('langcode' => $langcode)),
+                t('Abstract File: @file', array('@file' => $abs_file_name), array('langcode' => $langcode)),
+                t('Project File: @file', array('@file' => $proj_file_name), array('langcode' => $langcode)),
+                '',
+                t('Best wishes,', array(), array('langcode' => $langcode)),
+                '',
+                t('@site_name Team', array('@site_name' => $site_name), array('langcode' => $langcode)),
+                'FOSSEE, IIT Bombay',
+            );
+            break;
+
+        default:
+            if (isset($payload['subject'])) {
+                $message['subject'] = (string) $payload['subject'];
+            }
+            if (isset($payload['body'])) {
+                $message['body'] = is_array($payload['body']) ? $payload['body'] : array((string) $payload['body']);
+            }
+            break;
+    }
+}
+
+/**
+ * Loads a proposal row for mail templates.
+ */
+function cfd_case_study_load_proposal_for_mail($proposal_id)
+{
+    if (empty($proposal_id)) {
+        return NULL;
+    }
+
+    $query = \Drupal::database()->select('case_study_proposal', 'csp');
+    $query->fields('csp');
+    $query->condition('id', (int) $proposal_id);
+    $query->range(0, 1);
+    $proposal_data = $query->execute()->fetchObject();
+
+    return $proposal_data ?: NULL;
+}
+
+/**
+ * Builds common proposal detail lines for email templates.
+ */
+function cfd_case_study_build_common_proposal_lines($proposal_data, $user_email, $langcode)
+{
+    if (!$proposal_data) {
+        return array(
+            t('Proposal details are unavailable.', array(), array('langcode' => $langcode)),
+        );
+    }
+
+    $full_name = trim(($proposal_data->name_title ?? '') . ' ' . ($proposal_data->contributor_name ?? ''));
+    $full_name = cfd_case_study_mail_value($full_name);
+    $creation_date = cfd_case_study_format_mail_date($proposal_data->creation_date ?? NULL);
+    $expected_completion = cfd_case_study_format_mail_date($proposal_data->expected_date_of_completion ?? NULL);
+
+    return array(
+        t('Full Name: @value', array('@value' => $full_name), array('langcode' => $langcode)),
+        t('Email: @value', array('@value' => cfd_case_study_mail_value($user_email)), array('langcode' => $langcode)),
+        t('University/Institute: @value', array('@value' => cfd_case_study_mail_value($proposal_data->university ?? '')), array('langcode' => $langcode)),
+        t('City: @value', array('@value' => cfd_case_study_mail_value($proposal_data->city ?? '')), array('langcode' => $langcode)),
+        t('State: @value', array('@value' => cfd_case_study_mail_value($proposal_data->state ?? '')), array('langcode' => $langcode)),
+        t('Country: @value', array('@value' => cfd_case_study_mail_value($proposal_data->country ?? '')), array('langcode' => $langcode)),
+        t('Project Title: @value', array('@value' => cfd_case_study_mail_value($proposal_data->project_title ?? '')), array('langcode' => $langcode)),
+        t('Date of Proposal: @value', array('@value' => $creation_date), array('langcode' => $langcode)),
+        t('Expected Date of Completion: @value', array('@value' => $expected_completion), array('langcode' => $langcode)),
+    );
+}
+
+/**
+ * Formats proposal date values for email templates.
+ */
+function cfd_case_study_format_mail_date($value)
+{
+    if (empty($value) || !is_numeric($value)) {
+        return 'N/A';
+    }
+
+    return \Drupal::service('date.formatter')->format((int) $value, 'custom', 'd/m/Y');
+}
+
+/**
+ * Normalizes mail placeholder values.
+ */
+function cfd_case_study_mail_value($value)
+{
+    $value = is_string($value) ? trim($value) : $value;
+    return ($value === '' || $value === NULL) ? 'N/A' : (string) $value;
 }

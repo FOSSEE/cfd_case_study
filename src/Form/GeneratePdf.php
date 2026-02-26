@@ -25,8 +25,9 @@ class GeneratePdf extends FormBase {
     require($mpath . '/pdf/fpdf/fpdf.php');
     require($mpath . '/pdf/phpqrcode/qrlib.php');
     $user = \Drupal::currentUser();
-    $x = $user->uid;
-    $proposal_id = arg(3);
+    $x = $user->id();
+    $route_match = \Drupal::routeMatch();
+    $proposal_id = (int) ($route_match->getParameter('id') ?? \Drupal::request()->query->get('id') ?? \Drupal::request()->query->get('proposal_id'));
     $query3 = \Drupal::database()->query("SELECT * FROM esim_circuit_simulation_proposal WHERE approval_status=3 AND id=:proposal_id", [
       ':proposal_id' => $proposal_id
       ]);

@@ -831,7 +831,7 @@ function cfd_case_study_proposal_form_submit($form, &$form_state)
 		'Cc' => $cc,
 		'Bcc' => $bcc
 	);
-	if (!drupal_mail('case_study', 'case_study_proposal_received', $email_to, user_preferred_language($user), $params, $form, TRUE))
+	if (!drupal_mail('cfd_case_study', 'case_study_proposal_received', $email_to, user_preferred_language($user), $params, $form, TRUE))
 		\Drupal::messenger()->addError('Error sending email message.');
 	\Drupal::messenger()->addStatus(t('We have received your case study proposal. We will get back to you soon.'));
 	drupal_goto('');

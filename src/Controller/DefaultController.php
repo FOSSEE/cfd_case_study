@@ -20,6 +20,10 @@ use Drupal\user\Entity\User;
 use Drupal\Core\Session\AccountInterface;
 use Drupal\Core\Form\FormBuilderInterface;
 use Drupal\Core\Render\Markup;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Default controller for the cfd_case_study module.
@@ -117,6 +121,10 @@ public function cfd_case_study_proposal_pending() {
     '#attributes' => [
       'class' => ['case-study-proposal-pending-table'],
     ],
+    '#cache' => [
+      'tags' => ['case_study_proposal_list'],
+      'contexts' => ['user.permissions', 'url.path', 'url.query_args'],
+    ],
   ];
 
   return $output;
@@ -212,6 +220,10 @@ public function cfd_case_study_proposal_all() {
     '#header' => $proposal_header,
     '#rows' => $proposal_rows,
     '#empty' => t('No proposals available.'),
+    '#cache' => [
+      'tags' => ['case_study_proposal_list'],
+      'contexts' => ['user.permissions', 'url.path', 'url.query_args'],
+    ],
   ];
 }
 
@@ -219,89 +231,93 @@ public function cfd_case_study_proposal_all() {
   public function cfd_case_study_proposal_edit_file_all() {
     /* get pending proposals to be approved */
     $proposal_rows = [];
-    $query = \Drupal::database()->select('case_study_proposal');
-    $query->fields('case_study_proposal');
-    $query->orderBy('id', 'DESC');
-    $query->condition('approval_status', '0', '<>');
-    $query->condition('approval_status', '1', '<>');
-    $query->condition('approval_status', '2', '<>');
-    $query->orderBy('approval_status', 'DESC');
+    $query = \Drupal::database()->select('case_study_proposal', 'csp');
+    $query->fields('csp', [
+      'id',
+      'creation_date',
+      'contributor_name',
+      'uid',
+      'project_title',
+      'approval_date',
+      'actual_completion_date',
+      'approval_status',
+    ]);
+    $query->condition('csp.approval_status', [0, 1, 2], 'NOT IN');
+    $query->orderBy('csp.approval_status', 'DESC');
+    $query->orderBy('csp.id', 'DESC');
     $proposal_q = $query->execute();
-    while ($proposal_data = $proposal_q->fetchObject()) {
+    foreach ($proposal_q as $proposal_data) {
       $approval_status = '';
       switch ($proposal_data->approval_status) {
         case 0:
-          $approval_status = 'Pending';
+          $approval_status = $this->t('Pending');
           break;
         case 1:
-          $approval_status = 'Approved';
+          $approval_status = $this->t('Approved');
           break;
         case 2:
-          $approval_status = 'Dis-approved';
+          $approval_status = $this->t('Dis-approved');
           break;
         case 3:
-          $approval_status = 'Completed';
+          $approval_status = $this->t('Completed');
           break;
         case 5:
-          $approval_status = 'On Hold';
+          $approval_status = $this->t('On Hold');
           break;
         default:
-          $approval_status = 'Unknown';
+          $approval_status = $this->t('Unknown');
           break;
       } //$proposal_data->approval_status
       if ($proposal_data->actual_completion_date == 0) {
-        $actual_completion_date = "Not Completed";
+        $actual_completion_date = $this->t('Not Completed');
       } //$proposal_data->actual_completion_date == 0
       else {
         $actual_completion_date = date('d-m-Y', $proposal_data->actual_completion_date);
       }
       if ($proposal_data->approval_date == 0) {
-        $approval_date = "Not Approved";
+        $approval_date = $this->t('Not Approved');
       } //$proposal_data->actual_completion_date == 0
       else {
         $approval_date = date('d-m-Y', $proposal_data->approval_date);
       }
-      // @FIXME
-      // l() expects a Url object, created from a route name or external URI.
-      // $proposal_rows[] = array(
-      //             date('d-m-Y', $proposal_data->creation_date),
-      //             l($proposal_data->contributor_name, 'user/' . $proposal_data->uid),
-      //             $proposal_data->project_title,
-      //             $approval_date,
-      //             $actual_completion_date,
-      //             $approval_status,
-      //             l('Edit', 'case-study-project/abstract-code/edit-upload-files/' . $proposal_data->id),
-      //         );
-
-    } //$proposal_data = $proposal_q->fetchObject()
-    /* check if there are any pending proposals */
-    if (!$proposal_rows) {
-      \Drupal::messenger()->addStatus(t('There are no proposals.'));
-      return '';
-    } //!$proposal_rows
+      $edit_url = Link::fromTextAndUrl(
+        $this->t('Edit'),
+        Url::fromRoute('cfd_case_study.edit_upload_abstract_code_form', [], [
+          'query' => ['id' => $proposal_data->id],
+        ])
+      )->toString();
+      $proposal_rows[] = [
+        date('d-m-Y', $proposal_data->creation_date),
+        Link::fromTextAndUrl($proposal_data->contributor_name, Url::fromRoute('entity.user.canonical', ['user' => $proposal_data->uid])),
+        $proposal_data->project_title,
+        $approval_date,
+        $actual_completion_date,
+        $approval_status,
+        ['data' => $edit_url],
+      ];
+    }
+    if (empty($proposal_rows)) {
+      \Drupal::messenger()->addStatus($this->t('There are no proposals.'));
+    }
     $proposal_header = [
-      'Date of Submission',
-      'Student Name',
-      'Title of the case-study project',
-      'Date of Approval',
-      'Date of Project Completion',
-      'Status',
-      'Action',
+      $this->t('Date of Submission'),
+      $this->t('Student Name'),
+      $this->t('Title of the case-study project'),
+      $this->t('Date of Approval'),
+      $this->t('Date of Project Completion'),
+      $this->t('Status'),
+      $this->t('Action'),
     ];
-    // @FIXME
-    // theme() has been renamed to _theme() and should NEVER be called directly.
-    // Calling _theme() directly can alter the expected output and potentially
-    // introduce security issues (see https://www.drupal.org/node/2195739). You
-    // should use renderable arrays instead.
-    // 
-    // 
-    // @see https://www.drupal.org/node/2195739
-    // $output = theme('table', array(
-    //         'header' => $proposal_header,
-    //         'rows' => $proposal_rows,
-    //     ));
-
-    return $output;
+    return [
+      '#type' => 'table',
+      '#header' => $proposal_header,
+      '#rows' => $proposal_rows,
+      '#empty' => $this->t('No proposals available.'),
+      '#cache' => [
+        'tags' => ['case_study_proposal_list'],
+        'contexts' => ['user.permissions', 'url.path', 'url.query_args'],
+      ],
+    ];
   }
 
 
@@ -368,12 +384,22 @@ public function cfd_case_study_abstract() {
     $return_html .= '<strong>Uploaded Case Directory:</strong><br />' . $abstracts_query_process_filename . '<br /><br />';
     $return_html .= $url . '<br />';
 
-    return $return_html;
+    return [
+      '#markup' => $return_html,
+      '#cache' => [
+        'tags' => [
+          'case_study_proposal_list',
+          'case_study_proposal:' . $proposal_data->id,
+        ],
+        'contexts' => ['user', 'url.path', 'url.query_args'],
+      ],
+    ];
 }
 
   public function cfd_case_study_download_full_project() {
     $user = \Drupal::currentUser();
-    $id = arg(3);
+    $route_match = \Drupal::routeMatch();
+    $id = (int) ($route_match->getParameter('id') ?? $route_match->getParameter('proposal_id') ?? \Drupal::request()->query->get('id'));
     $root_path = cfd_case_study_path();
     //var_dump($root_path);die;
     $query = \Drupal::database()->select('case_study_proposal');
@@ -385,8 +411,8 @@ public function cfd_case_study_abstract() {
     /* zip filename */
     $zip_filename = $root_path . 'zip-' . time() . '-' . rand(0, 999999) . '.zip';
     /* creating zip archive on the server */
-    $zip = new ZipArchive();
-    $zip->open($zip_filename, ZipArchive::CREATE);
+    $zip = new \ZipArchive();
+    $zip->open($zip_filename, \ZipArchive::CREATE);
     $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
     $query->condition('id', $id);
@@ -403,39 +429,91 @@ public function cfd_case_study_abstract() {
     }
     $zip_file_count = $zip->numFiles;
     $zip->close();
-    if ($zip_file_count > 0) {
-      if ($user->uid) {
-        /* download zip file */
-        header('Content-Type: application/zip');
-        header('Content-disposition: attachment; filename="' . str_replace(' ', '_', $case_study_data->project_title) . '.zip"');
-        header('Content-Length: ' . filesize($zip_filename));
-        ob_end_flush();
-        ob_clean();
-        flush();
-        readfile($zip_filename);
-        unlink($zip_filename);
-      } //$user->uid
-      else {
-        header('Content-Type: application/zip');
-        header('Content-disposition: attachment; filename="' . str_replace(' ', '_', $case_study_data->project_title) . '.zip"');
-        header('Content-Length: ' . filesize($zip_filename));
-        header("Content-Transfer-Encoding: binary");
-        header('Expires: 0');
-        header('Pragma: no-cache');
-        ob_end_flush();
-        ob_clean();
-        flush();
-        readfile($zip_filename);
-        unlink($zip_filename);
+    if ($zip_file_count > 0 && file_exists($zip_filename)) {
+      $response = new BinaryFileResponse($zip_filename);
+      $disposition = $response->headers->makeDisposition(
+        ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+        str_replace(' ', '_', $case_study_data->project_title) . '.zip'
+      );
+      $response->headers->set('Content-Type', 'application/zip');
+      $response->headers->set('Content-Disposition', $disposition);
+      $response->deleteFileAfterSend(TRUE);
+      return $response;
+    }
+
+    \Drupal::messenger()->addError("There are no case study project in this proposal to download");
+    return new RedirectResponse(Url::fromUserInput('/circuit-simulation-project/full-download/project')->toString());
+  }
+
+
+
+
+
+  public function downloadFullProject($id) {
+    $user = $this->currentUser();
+    $database = \Drupal::database();
+    $root_path = cfd_case_study_path();
+
+    // Load proposal data
+    $case_study_data = $database->select('case_study_proposal', 'c')
+      ->fields('c')
+      ->condition('id', $id)
+      ->execute()
+      ->fetchObject();
+
+    if (!$case_study_data) {
+      $this->messenger()->addError("Invalid proposal ID.");
+      return new RedirectResponse('/circuit-simulation-project/full-download/project');
+    }
+
+    $CASE_STUDY_PATH = $case_study_data->directory_name . '/';
+    $zip_filename = $root_path . 'zip-' . time() . '-' . rand(0, 999999) . '.zip';
+
+    $zip = new \ZipArchive();
+    if ($zip->open($zip_filename, \ZipArchive::CREATE) !== TRUE) {
+      $this->messenger()->addError("Could not create ZIP file.");
+      return new RedirectResponse('/circuit-simulation-project/full-download/project');
+    }
+
+    // Get all project files for the proposal
+    $project_files = $database->select('case_study_submitted_abstracts_file', 'f')
+      ->fields('f')
+      ->condition('proposal_id', $id)
+      ->execute();
+
+    while ($file = $project_files->fetchObject()) {
+      $full_path = $root_path . $CASE_STUDY_PATH . $file->filepath;
+      if (file_exists($full_path)) {
+        $zip->addFile(
+          $full_path,
+          $CASE_STUDY_PATH . str_replace(' ', '_', basename($file->filename))
+        );
       }
-    } //$zip_file_count > 0
+    }
+
+    $zip_file_count = $zip->numFiles;
+    $zip->close();
+
+    if ($zip_file_count > 0 && file_exists($zip_filename)) {
+      $response = new BinaryFileResponse($zip_filename);
+      $disposition = $response->headers->makeDisposition(
+        ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+        str_replace(' ', '_', $case_study_data->project_title) . '.zip'
+      );
+      $response->headers->set('Content-Type', 'application/zip');
+      $response->headers->set('Content-Disposition', $disposition);
+
+      // Delete the ZIP file after it's sent to the user
+      $response->deleteFileAfterSend(true);
+
+      return $response;
+    }
     else {
-      \Drupal::messenger()->addError("There are no case study project in this proposal to download");
-      drupal_goto('circuit-simulation-project/full-download/project');
+      $this->messenger()->addError("There are no case study project files in this proposal to download.");
+      return new RedirectResponse('/circuit-simulation-project/full-download/project');
     }
   }
 
-  
 public function cfd_case_study_completed_proposals_all() {
   $output = [];
   
@@ -465,7 +543,7 @@ public function cfd_case_study_completed_proposals_all() {
       $project_title = Link::fromTextAndUrl(
         $record->project_title,
         Url::fromRoute('cfd_case_study.run_form', ['case_study_run' => $record->id])
-      )->toString();
+      )->toRenderable();
 
      
 
@@ -492,9 +570,17 @@ public function cfd_case_study_completed_proposals_all() {
       '#header' => $header,
       '#rows' => $rows,
       '#empty' => $this->t('No completed proposals found.'),
+      '#cache' => [
+        'tags' => ['case_study_proposal_list'],
+        'contexts' => ['user.permissions', 'url.path', 'url.query_args'],
+      ],
     ];
   }
 
+  $output['#cache'] = [
+    'tags' => ['case_study_proposal_list'],
+    'contexts' => ['user.permissions', 'url.path', 'url.query_args'],
+  ];
   return $output;
 }
 
@@ -544,7 +630,16 @@ public function cfd_case_study_completed_proposals_all() {
         '#type' => 'table',
         '#header' => $preference_header,
         '#rows' => $preference_rows,
-        
+        '#cache' => [
+          'tags' => ['case_study_proposal_list'],
+          'contexts' => ['user.permissions', 'url.path', 'url.query_args'],
+        ],
+      ];
+    }
+    if (is_array($page_content)) {
+      $page_content['#cache'] = [
+        'tags' => ['case_study_proposal_list'],
+        'contexts' => ['user.permissions', 'url.path', 'url.query_args'],
       ];
     }
     return $page_content;
@@ -553,107 +648,115 @@ public function cfd_case_study_completed_proposals_all() {
     
 
   public function list_of_available_project_titles() {
-    $output = "";
-    //$static_url = "https://static.fossee.in/cfd/project-titles/";
-    $preference_rows = [];
-    $i = 1;
-    $query = \Drupal::database()->query("SELECT * from list_of_project_titles WHERE {project_title_name} NOT IN( SELECT  project_title from case_study_proposal WHERE approval_status = 0 OR approval_status = 1 OR approval_status = 3)");
-    while ($result = $query->fetchObject()) {
-      // @FIXME
-// l() expects a Url object, created from a route name or external URI.
-// $preference_rows[] = array(
-// 				$i,
-// 				//print_r(array_keys($case_studies_list))
-// 				l($result->project_title_name, 'case-study-project/download/project-title-file/' .$result->id)
-// 				);
+  $preference_rows = [];
+  $i = 1;
 
-      $i++;
-    }
-    $preference_header = [
-      'No',
-      'List of available projects',
+  $connection = \Drupal::database();
+  $query = $connection->query("
+    SELECT * FROM list_of_project_titles 
+    WHERE project_title_name NOT IN (
+      SELECT project_title 
+      FROM case_study_proposal 
+      WHERE approval_status IN (0, 1, 3)
+    )
+  ");
+
+  while ($result = $query->fetchObject()) {
+    $url = Url::fromUri('internal:/case-study-project/download/project-title-file/' . $result->id);
+    $link = Link::fromTextAndUrl($result->project_title_name, $url)->toRenderable();
+
+    $preference_rows[] = [
+      $i,
+      $link,
     ];
-    // @FIXME
-    // theme() has been renamed to _theme() and should NEVER be called directly.
-    // Calling _theme() directly can alter the expected output and potentially
-    // introduce security issues (see https://www.drupal.org/node/2195739). You
-    // should use renderable arrays instead.
-    // 
-    // 
-    // @see https://www.drupal.org/node/2195739
-    // $output .= theme('table', array(
-    // 			'header' => $preference_header,
-    // 			'rows' => $preference_rows
-    // 		));
-
-
-    return $output;
+    $i++;
   }
 
+  $preference_header = [
+    t('No'),
+    t('List of available projects'),
+  ];
+
+  // Return a render array for a Drupal table.
+  return [
+    '#type' => 'table',
+    '#header' => $preference_header,
+    '#rows' => $preference_rows,
+    '#empty' => t('No available projects found.'),
+    '#cache' => [
+      'tags' => ['case_study_project_titles_list'],
+      'contexts' => ['user.permissions', 'url.path', 'url.query_args'],
+    ],
+  ];
+}
+
   public function download_case_study_project_title_files() {
-    $id = arg(3);
+    $route_match = \Drupal::routeMatch();
+    $id = (int) ($route_match->getParameter('id') ?? $route_match->getParameter('proposal_id') ?? \Drupal::request()->query->get('id'));
     $root_path = cfd_case_study_project_titles_resource_file_path();
     $query = \Drupal::database()->select('list_of_project_titles');
     $query->fields('list_of_project_titles');
     $query->condition('id', $id);
     $result = $query->execute();
     $case_study_project_files_list = $result->fetchObject();
-    //$directory_name = $case_study_project_files_list->filepath;
     $abstract_file = $case_study_project_files_list->filepath;
-    ob_clean();
-    header("Pragma: public");
-    header("Expires: 0");
-    header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-    header("Cache-Control: public");
-    header("Content-Description: File Transfer");
-    header("Content-Type: application/pdf");
-    header('Content-disposition: attachment; filename="' . $abstract_file . '"');
-    header("Content-Length: " . filesize($root_path . $abstract_file));
-    header("Content-Transfer-Encoding: binary");
-    header("Expires: 0");
-    header("Pragma: no-cache");
-    readfile($root_path . $abstract_file);
-    ob_end_flush();
-    ob_clean();
+    $file_path = $root_path . $abstract_file;
+    if (!is_file($file_path)) {
+      throw new NotFoundHttpException();
+    }
+    $response = new BinaryFileResponse($file_path);
+    $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, basename($abstract_file));
+    return $response;
   }
 
-  public function cfd_case_study_project_files() {
-    $proposal_id = arg(3);
+
+
+
+
+
+  public function cfd_case_study_project_files(RouteMatchInterface $route_match) {
+    // ✅ Replaces arg(3)
+    $proposal_id = (int) $route_match->getParameter('proposal_id');
+
     $root_path = cfd_case_study_path();
+
     $query = \Drupal::database()->select('case_study_submitted_abstracts_file');
     $query->fields('case_study_submitted_abstracts_file');
     $query->condition('proposal_id', $proposal_id);
     $query->condition('filetype', 'A');
     $result = $query->execute();
     $cfd_case_study_project_files = $result->fetchObject();
+
     $query1 = \Drupal::database()->select('case_study_proposal');
     $query1->fields('case_study_proposal');
     $query1->condition('id', $proposal_id);
     $result1 = $query1->execute();
     $case_study = $result1->fetchObject();
+
+    if (!$cfd_case_study_project_files || !$case_study) {
+      throw new NotFoundHttpException();
+    }
+
     $directory_name = $case_study->directory_name . '/';
     $abstract_file = $cfd_case_study_project_files->filename;
-    ob_clean();
-    header("Pragma: public");
-    header("Expires: 0");
-    header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-    header("Cache-Control: public");
-    header("Content-Description: File Transfer");
-    header("Content-Type: application/pdf");
-    header('Content-disposition: attachment; filename="' . $abstract_file . '"');
-    header("Content-Length: " . filesize($root_path . $directory_name . $abstract_file));
-    header("Content-Transfer-Encoding: binary");
-    header("Expires: 0");
-    header("Pragma: no-cache");
-    readfile($root_path . $directory_name . $abstract_file);
-    ob_end_flush();
-    ob_clean();
+    $file_path = $root_path . $directory_name . $abstract_file;
+
+    if (!file_exists($file_path)) {
+      throw new NotFoundHttpException();
+    }
+
+    // ✅ DIRECT MIGRATION FOR DOWNLOAD RESPONSE (no logic change)
+    $response = new BinaryFileResponse($file_path);
+    $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $abstract_file);
+
+    return $response;
   }
+
 
   public function _list_case_study_certificates() {
     $user = \Drupal::currentUser();
     $query_id = \Drupal::database()->query("SELECT id FROM case_study_proposal WHERE approval_status=3 AND uid= :uid", [
-      ':uid' => $user->uid
+      ':uid' => $user->id()
       ]);
     $exist_id = $query_id->fetchObject();
     //var_dump($exist_id->id);die;
@@ -668,7 +771,7 @@ public function cfd_case_study_completed_proposals_all() {
           global $output;
           $output = '';
           $query3 = \Drupal::database()->query("SELECT id,project_title,contributor_name FROM case_study_proposal WHERE approval_status=3 AND uid= :uid", [
-            ':uid' => $user->uid
+            ':uid' => $user->id()
             ]);
           while ($search_data3 = $query3->fetchObject()) {
             if ($search_data3->id) {
@@ -717,17 +820,19 @@ public function cfd_case_study_completed_proposals_all() {
     }
   }
 
-  public function verify_certificates($qr_code = 0) {
-    $qr_code = arg(3);
-    $page_content = "";
-    if ($qr_code) {
-      $page_content = verify_qrcode_fromdb($qr_code);
-    } //$qr_code
-    else {
-      $verify_certificates_form = drupal_get_form("verify_certificates_form");
-      $page_content = drupal_render($verify_certificates_form);
+  public function verify_certificates($qr_code = NULL) {
+    \Drupal::moduleHandler()->loadInclude('cfd_case_study', 'inc', 'pdf/verify_certificates');
+    if ($qr_code === 'verify_certificates') {
+      $qr_code = NULL;
     }
-    return $page_content;
+    $qr_code = $qr_code ?: \Drupal::request()->query->get('qr_code');
+    if ($qr_code) {
+      return [
+        '#markup' => verify_qrcode_fromdb($qr_code),
+      ];
+    }
+
+    return \Drupal::formBuilder()->getForm('verify_certificates_form');
   }
 
 }

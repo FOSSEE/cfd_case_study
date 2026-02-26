@@ -1,7 +1,12 @@
 <?php
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\HtmlCommand;
 function verify_certificates($qr_code = 0)
 {
-	$qr_code = arg(3);
+	$route_match = \Drupal::routeMatch();
+	$qr_code = $route_match->getParameter('qr_code') ?? \Drupal::request()->query->get('qr_code');
 	$page_content = "";
 	if ($qr_code)
 	{
@@ -14,7 +19,7 @@ function verify_certificates($qr_code = 0)
 	}
 	return $page_content;
 }
-function verify_certificates_form($form, &$form_state)
+function verify_certificates_form(array $form, FormStateInterface $form_state)
 {
 	$form = array();
 	$form['Title'] = array(
@@ -45,18 +50,14 @@ function verify_certificates_form($form, &$form_state)
 	);
 	return $form;
 }
-function verify_certificates_form_submit($form, &$form_state)
+function verify_certificates_form_submit(array &$form, FormStateInterface $form_state)
 {
-	$page_content = "";
-	$v = $form_state["values"];
-	$qr_code = $v["QR_code"];
+	$qr_code = $form_state->getValue('QR_code');
 	$page_content = verify_qrcode_fromdb($qr_code);
-	$form['displaytable']['#markup'] = $page_content;
-	$commands[] = ajax_command_html("#displaytable", \Drupal::service("renderer")->render($form['displaytable']));
-	return array(
-		'#type' => 'ajax',
-		'#commands' => $commands
-	);
+
+	$response = new AjaxResponse();
+	$response->addCommand(new HtmlCommand('#displaytable', $page_content));
+	return $response;
 }
 function verify_qrcode_fromdb($qr_code)
 {

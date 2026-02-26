@@ -503,7 +503,7 @@ function cfd_case_study_proposal_approval_form_submit($form, &$form_state)
             'Cc' => $cc,
             'Bcc' => $bcc,
         );
-        if (!drupal_mail('case_study', 'case_study_proposal_approved', $email_to, language_default(), $params, $from, true)) {
+        if (!drupal_mail('cfd_case_study', 'case_study_proposal_approved', $email_to, language_default(), $params, $from, true)) {
             \Drupal::messenger()->addError('Error sending email message.');
         }
 
@@ -552,7 +552,7 @@ function cfd_case_study_proposal_approval_form_submit($form, &$form_state)
             'Cc' => $cc,
             'Bcc' => $bcc,
         );
-        if (!drupal_mail('case_study', 'case_study_proposal_disapproved', $email_to, language_default(), $params, $from, true)) {
+        if (!drupal_mail('cfd_case_study', 'case_study_proposal_disapproved', $email_to, language_default(), $params, $from, true)) {
             \Drupal::messenger()->addError('Error sending email message.');
         }
 
@@ -870,7 +870,7 @@ function cfd_case_study_proposal_status_form_submit($form, &$form_state)
             'Cc' => $cc,
             'Bcc' => $bcc,
         );
-        if (!drupal_mail('case_study', 'case_study_proposal_completed', $email_to, language_default(), $params, $from, true)) {
+        if (!drupal_mail('cfd_case_study', 'case_study_proposal_completed', $email_to, language_default(), $params, $from, true)) {
             \Drupal::messenger()->addError('Error sending email message.');
         }
 
@@ -1273,7 +1273,7 @@ function cfd_case_study_proposal_edit_form_submit($form, &$form_state)
             'Cc' => $cc,
             'Bcc' => $bcc,
         );
-        if (!drupal_mail('case_study', 'case_study_proposal_deleted', $email_to, user_preferred_language($user), $params, $from, true)) {
+        if (!drupal_mail('cfd_case_study', 'case_study_proposal_deleted', $email_to, user_preferred_language($user), $params, $from, true)) {
             \Drupal::messenger()->addError('Error sending email message.');
         }
 

@@ -9,7 +9,6 @@ namespace Drupal\cfd_case_study\Form;
 
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Core\Render\Element;
 
 class CfdCaseStudyProposalEditForm extends FormBase {
 
@@ -20,32 +19,23 @@ class CfdCaseStudyProposalEditForm extends FormBase {
     return 'cfd_case_study_proposal_edit_form';
   }
 
-  public function buildForm(array $form, \Drupal\Core\Form\FormStateInterface $form_state) {
-    $user = \Drupal::currentUser();
-    /* get current proposal */
-    $proposal_id = (int) arg(3);
-    //$proposal_q = db_query("SELECT * FROM {case_study_proposal} WHERE id = %d", $proposal_id);
-    $query = \Drupal::database()->select('case_study_proposal');
-    $query->fields('case_study_proposal');
-    $query->condition('id', $proposal_id);
-    $proposal_q = $query->execute();
-    $proposal_data = $proposal_q->fetchObject();
-    /*if ($proposal_q) {
-        if ($proposal_data = $proposal_q->fetchObject()) {
-            /* everything ok 
-        } //$proposal_data = $proposal_q->fetchObject()
-        else {
-            drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
-            drupal_goto('case-study-project/manage-proposal');
-            return;
-        }
-    } //$proposal_q
-    else {
-        drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
-        drupal_goto('case-study-project/manage-proposal');
-        return;
-    }*/
-    $user_data = \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid);
+  public function buildForm(array $form, FormStateInterface $form_state) {
+    $proposal_id = $this->getProposalId();
+    if (!$proposal_id) {
+      $this->messenger()->addError($this->t('Invalid proposal selected. Please try again.'));
+      $form_state->setRedirect('cfd_case_study.proposal_all');
+      return [];
+    }
+
+    $proposal_data = $this->loadProposal($proposal_id);
+    if (!$proposal_data) {
+      $this->messenger()->addError($this->t('Invalid proposal selected. Please try again.'));
+      $form_state->setRedirect('cfd_case_study.proposal_all');
+      return [];
+    }
+
+   $user_data = \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid);
+    $user_email = $user_data ? $user_data->getEmail() : '';
     $form['name_title'] = [
       '#type' => 'select',
       '#title' => t('Title'),
@@ -69,7 +59,7 @@ class CfdCaseStudyProposalEditForm extends FormBase {
     $form['student_email_id'] = [
       '#type' => 'item',
       '#title' => t('Email'),
-      '#markup' => $user_data->mail,
+      '#markup' => $user_email,
     ];
     $form['university'] = [
       '#type' => 'textfield',
@@ -309,7 +299,7 @@ class CfdCaseStudyProposalEditForm extends FormBase {
     return $form;
   }
 
-  public function validateForm(array &$form, \Drupal\Core\Form\FormStateInterface $form_state) {
+  public function validateForm(array &$form, FormStateInterface $form_state) {
     if ($form_state->getValue(['simulation_type']) < 19) {
       if ($form_state->getValue(['solver_used']) == '0') {
         $form_state->setErrorByName('solver_used', t('Please select an option'));
@@ -334,65 +324,56 @@ class CfdCaseStudyProposalEditForm extends FormBase {
     }
   }
 
-  public function submitForm(array &$form, \Drupal\Core\Form\FormStateInterface $form_state) {
-    $user = \Drupal::currentUser();
-    /* get current proposal */
-    $proposal_id = (int) arg(3);
-    $query = \Drupal::database()->select('case_study_proposal');
-    $query->fields('case_study_proposal');
-    $query->condition('id', $proposal_id);
-    $proposal_q = $query->execute();
-    if ($proposal_q) {
-      if ($proposal_data = $proposal_q->fetchObject()) {
-        /* everything ok */
-      } //$proposal_data = $proposal_q->fetchObject()
-      else {
-        \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
-        drupal_goto('case-study-project/manage-proposal');
-        return;
-      }
-    } //$proposal_q
-    else {
-      \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
-      drupal_goto('case-study-project/manage-proposal');
+  public function submitForm(array &$form, FormStateInterface $form_state) {
+    $proposal_id = $this->getProposalId();
+    if (!$proposal_id) {
+      $this->messenger()->addError($this->t('Invalid proposal selected. Please try again.'));
+      $form_state->setRedirect('cfd_case_study.proposal_all');
+      return;
+    }
+
+    $proposal_data = $this->loadProposal($proposal_id);
+    if (!$proposal_data) {
+      $this->messenger()->addError($this->t('Invalid proposal selected. Please try again.'));
+      $form_state->setRedirect('cfd_case_study.proposal_all');
       return;
     }
     /* delete proposal */
     if ($form_state->getValue(['delete_proposal']) == 1) {
       /* sending email */
       $user_data = \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid);
-      $email_to = $user_data->mail;
-      // @FIXME
-      // // @FIXME
-      // // This looks like another module's variable. You'll need to rewrite this call
-      // // to ensure that it uses the correct configuration object.
-      // $from = variable_get('case_study_from_email', '');
-
-      // @FIXME
-      // // @FIXME
-      // // This looks like another module's variable. You'll need to rewrite this call
-      // // to ensure that it uses the correct configuration object.
-      // $bcc = variable_get('case_study_emails', '');
-
-      // @FIXME
-      // // @FIXME
-      // // This looks like another module's variable. You'll need to rewrite this call
-      // // to ensure that it uses the correct configuration object.
-      // $cc = variable_get('case_study_cc_emails', '');
+      $email_to = $user_data ? $user_data->getEmail() : '';
+      $config = \Drupal::config('cfd_case_study.settings');
+      $from = $config->get('case_study_from_email') ?: \Drupal::config('system.site')->get('mail');
+      if (empty($from)) {
+        $from = 'no-reply@localhost';
+      }
+      $bcc = $config->get('case_study_emails');
+      $cc = $config->get('case_study_cc_emails');
+      $langcode = $user_data ? $user_data->getPreferredLangcode() : $this->currentUser()->getPreferredLangcode();
 
       $params['case_study_proposal_deleted']['proposal_id'] = $proposal_id;
       $params['case_study_proposal_deleted']['user_id'] = $proposal_data->uid;
-      $params['case_study_proposal_deleted']['headers'] = [
+      $headers = [
         'From' => $from,
         'MIME-Version' => '1.0',
         'Content-Type' => 'text/plain; charset=UTF-8; format=flowed; delsp=yes',
         'Content-Transfer-Encoding' => '8Bit',
         'X-Mailer' => 'Drupal',
-        'Cc' => $cc,
-        'Bcc' => $bcc,
       ];
-      if (!drupal_mail('case_study', 'case_study_proposal_deleted', $email_to, user_preferred_language($user), $params, $from, TRUE)) {
-        \Drupal::messenger()->addError('Error sending email message.');
+      if (!empty($cc)) {
+        $headers['Cc'] = $cc;
+      }
+      if (!empty($bcc)) {
+        $headers['Bcc'] = $bcc;
+      }
+      $params['case_study_proposal_deleted']['headers'] = $headers;
+      $mail_manager = \Drupal::service('plugin.manager.mail');
+      if ($email_to) {
+        $result = $mail_manager->mail('cfd_case_study', 'case_study_proposal_deleted', $email_to, $langcode, $params, $from, TRUE);
+        if (empty($result['result'])) {
+          \Drupal::messenger()->addError('Error sending email message.');
+        }
       }
 
       \Drupal::messenger()->addStatus(t('Case Study proposal has been deleted.'));
@@ -401,7 +382,11 @@ class CfdCaseStudyProposalEditForm extends FormBase {
         $query->condition('id', $proposal_id);
         $num_deleted = $query->execute();
         \Drupal::messenger()->addStatus(t('Proposal Deleted'));
-        drupal_goto('case-study-project/manage-proposal');
+        \Drupal\Core\Cache\Cache::invalidateTags([
+          'case_study_proposal_list',
+          "case_study_proposal:$proposal_id",
+        ]);
+        $form_state->setRedirect('cfd_case_study.proposal_all');
         return;
       } //rrmdir_project($proposal_id) == TRUE
     } //$form_state['values']['delete_proposal'] == 1
@@ -463,6 +448,46 @@ class CfdCaseStudyProposalEditForm extends FormBase {
     ];
     $result = \Drupal::database()->query($query, $args);
     \Drupal::messenger()->addStatus(t('Proposal Updated'));
+    \Drupal\Core\Cache\Cache::invalidateTags([
+      'case_study_proposal_list',
+      "case_study_proposal:$proposal_id",
+    ]);
+    $form_state->setRedirect('cfd_case_study.proposal_all');
+  }
+
+  /**
+   * Returns the proposal entity row for a given ID.
+   *
+   * @param int $proposal_id
+   *   The proposal identifier.
+   *
+   * @return object|null
+   *   The proposal row or NULL if not found.
+   */
+  protected function loadProposal($proposal_id) {
+    $query = \Drupal::database()->select('case_study_proposal');
+    $query->fields('case_study_proposal');
+    $query->condition('id', $proposal_id);
+    $proposal_q = $query->execute();
+
+    return $proposal_q ? $proposal_q->fetchObject() : NULL;
+  }
+
+  /**
+   * Safely pull the proposal ID from the current route or query string.
+   *
+   * @return int|null
+   *   The proposal ID if available, otherwise NULL.
+   */
+  protected function getProposalId() {
+    $route_match = \Drupal::routeMatch();
+    $proposal_id = $route_match->getParameter('id') ?: $route_match->getParameter('proposal_id');
+
+    if (!$proposal_id) {
+      $proposal_id = \Drupal::request()->query->get('id') ?: \Drupal::request()->query->get('proposal_id');
+    }
+
+    return $proposal_id !== NULL ? (int) $proposal_id : NULL;
   }
 
 }

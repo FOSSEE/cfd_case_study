@@ -190,19 +190,20 @@ class CfdCaseStudyProposalApprovalForm extends FormBase {
       '#default_value' => date('d/m/Y', $proposal_data->expected_date_of_completion),
       '#disabled' => TRUE,
     ];
-    if (($query_abstract_pdf->filename != "") && ($query_abstract_pdf->filename != 'NULL')) {
-      $str = substr($query_abstract_pdf->filename, strrpos($query_abstract_pdf->filename, '/'));
-      $resource_file = ltrim($str, '/');
+   if (!empty($query_abstract_pdf->filename) && $query_abstract_pdf->filename !== 'NULL') {
 
-      // @FIXME
-      // l() expects a Url object, created from a route name or external URI.
-      // $form['abstract_file_path'] = array(
-      //             '#type' => 'item',
-      //             '#title' => t('Abstract file '),
-      //             '#markup' => l($resource_file, 'case-study-project/download/project-file/' . $proposal_id) . "",
-      //         );
+  $str = substr($query_abstract_pdf->filename, strrpos($query_abstract_pdf->filename, '/'));
+  $resource_file = ltrim($str, '/'); // keep same logic exactly
 
-    } //$proposal_data->user_defined_compound_filepath != ""
+  $form['abstract_file_path'] = [
+    '#type' => 'item',
+    '#title' => $this->t('Abstract file'),
+    '#markup' => Link::fromTextAndUrl(
+      $resource_file,
+      Url::fromRoute('cfd_case_study.project_files', ['proposal_id' => $proposal_id])
+    )->toString(),
+  ];
+} //$proposal_data->user_defined_compound_filepath != ""
     else {
       $form['abstract_file_path'] = [
         '#type' => 'item',
@@ -274,111 +275,123 @@ class CfdCaseStudyProposalApprovalForm extends FormBase {
       } //$proposal_data = $proposal_q->fetchObject()
       else {
         \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
-        drupal_goto('case-study-project/manage-proposal');
+        $form_state->setRedirect('cfd_case_study.proposal_pending');
         return;
       }
     } //$proposal_q
     else {
       \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
-      drupal_goto('case-study-project/manage-proposal');
+      $form_state->setRedirect('cfd_case_study.proposal_pending');
       return;
     }
     if ($form_state->getValue(['approval']) == 1) {
       $query = "UPDATE {case_study_proposal} SET approver_uid = :uid, approval_date = :date, approval_status = 1 WHERE id = :proposal_id";
       $args = [
-        ":uid" => $user->uid,
+        ":uid" => $user->id(),
         ":date" => time(),
         ":proposal_id" => $proposal_id,
       ];
       \Drupal::database()->query($query, $args);
       /* sending email */
       $user_data = \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid);
-      $email_to = $user_data->mail;
-      // @FIXME
-      // // @FIXME
-      // // This looks like another module's variable. You'll need to rewrite this call
-      // // to ensure that it uses the correct configuration object.
-      // $from = variable_get('case_study_from_email', '');
+      $email_to = $user_data ? $user_data->getEmail() : '';
 
-      // @FIXME
-      // // @FIXME
-      // // This looks like another module's variable. You'll need to rewrite this call
-      // // to ensure that it uses the correct configuration object.
-      // $bcc = $user->mail . ', ' . variable_get('case_study_emails', '');
-
-      // @FIXME
-      // // @FIXME
-      // // This looks like another module's variable. You'll need to rewrite this call
-      // // to ensure that it uses the correct configuration object.
-      // $cc = variable_get('case_study_cc_emails', '');
+      // Fetch configuration values.
+      $config = \Drupal::config('cfd_case_study.settings');
+      $from = $config->get('case_study_from_email') ?: \Drupal::config('system.site')->get('mail');
+      if (empty($from)) {
+        $from = 'no-reply@localhost';
+      }
+      $bcc = $config->get('case_study_emails');
+      $cc = $config->get('case_study_cc_emails');
 
       $params['case_study_proposal_approved']['proposal_id'] = $proposal_id;
       $params['case_study_proposal_approved']['user_id'] = $proposal_data->uid;
-      $params['case_study_proposal_approved']['headers'] = [
+      $headers = [
         'From' => $from,
         'MIME-Version' => '1.0',
         'Content-Type' => 'text/plain; charset=UTF-8; format=flowed; delsp=yes',
         'Content-Transfer-Encoding' => '8Bit',
         'X-Mailer' => 'Drupal',
-        'Cc' => $cc,
-        'Bcc' => $bcc,
       ];
-      if (!drupal_mail('case_study', 'case_study_proposal_approved', $email_to, language_default(), $params, $from, TRUE)) {
-        \Drupal::messenger()->addError('Error sending email message.');
+      if (!empty($cc)) {
+        $headers['Cc'] = $cc;
+      }
+      if (!empty($bcc)) {
+        $headers['Bcc'] = $bcc;
+      }
+      $params['case_study_proposal_approved']['headers'] = $headers;
+
+      $langcode = $user_data ? $user_data->getPreferredLangcode() : \Drupal::languageManager()->getDefaultLanguage()->getId();
+      if ($email_to) {
+        $result = \Drupal::service('plugin.manager.mail')->mail('cfd_case_study', 'case_study_proposal_approved', $email_to, $langcode, $params, $from, TRUE);
+        if (empty($result['result'])) {
+          \Drupal::messenger()->addError('Error sending email message.');
+        }
       }
 
       \Drupal::messenger()->addStatus('CFD Case Study proposal No. ' . $proposal_id . ' approved. User has been notified of the approval.');
-      drupal_goto('case-study-project/manage-proposal');
+      \Drupal\Core\Cache\Cache::invalidateTags([
+        'case_study_proposal_list',
+        "case_study_proposal:$proposal_id",
+      ]);
+      $form_state->setRedirect('cfd_case_study.proposal_pending');
       return;
     } //$form_state['values']['approval'] == 1
     else {
       if ($form_state->getValue(['approval']) == 2) {
         $query = "UPDATE {case_study_proposal} SET approver_uid = :uid, approval_date = :date, approval_status = 2, dissapproval_reason = :dissapproval_reason WHERE id = :proposal_id";
         $args = [
-          ":uid" => $user->uid,
+          ":uid" => $user->id(),
           ":date" => time(),
           ":dissapproval_reason" => $form_state->getValue(['message']),
           ":proposal_id" => $proposal_id,
         ];
         $result = \Drupal::database()->query($query, $args);
         /* sending email */
-        $user_data = \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid);
-        $email_to = $user_data->mail;
-        // @FIXME
-        // // @FIXME
-        // // This looks like another module's variable. You'll need to rewrite this call
-        // // to ensure that it uses the correct configuration object.
-        // $from = variable_get('case_study_from_email', '');
+       $user_data = \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid);
+$email_to = $user_data ? $user_data->getEmail() : '';
 
-        // @FIXME
-        // // @FIXME
-        // // This looks like another module's variable. You'll need to rewrite this call
-        // // to ensure that it uses the correct configuration object.
-        // $bcc = $user->mail . ', ' . variable_get('case_study_emails', '');
 
-        // @FIXME
-        // // @FIXME
-        // // This looks like another module's variable. You'll need to rewrite this call
-        // // to ensure that it uses the correct configuration object.
-        // $cc = variable_get('case_study_cc_emails', '');
-
+        // Fetch configuration values.
+        $config = \Drupal::config('cfd_case_study.settings');
+        $from = $config->get('case_study_from_email') ?: \Drupal::config('system.site')->get('mail');
+        if (empty($from)) {
+          $from = 'no-reply@localhost';
+        }
+        $bcc = $config->get('case_study_emails');
+        $cc = $config->get('case_study_cc_emails');
         $params['case_study_proposal_disapproved']['proposal_id'] = $proposal_id;
         $params['case_study_proposal_disapproved']['user_id'] = $proposal_data->uid;
-        $params['case_study_proposal_disapproved']['headers'] = [
+        $headers = [
           'From' => $from,
           'MIME-Version' => '1.0',
           'Content-Type' => 'text/plain; charset=UTF-8; format=flowed; delsp=yes',
           'Content-Transfer-Encoding' => '8Bit',
           'X-Mailer' => 'Drupal',
-          'Cc' => $cc,
-          'Bcc' => $bcc,
         ];
-        if (!drupal_mail('case_study', 'case_study_proposal_disapproved', $email_to, language_default(), $params, $from, TRUE)) {
-          \Drupal::messenger()->addError('Error sending email message.');
+        if (!empty($cc)) {
+          $headers['Cc'] = $cc;
+        }
+        if (!empty($bcc)) {
+          $headers['Bcc'] = $bcc;
+        }
+        $params['case_study_proposal_disapproved']['headers'] = $headers;
+
+        $langcode = $user_data ? $user_data->getPreferredLangcode() : \Drupal::languageManager()->getDefaultLanguage()->getId();
+        if ($email_to) {
+          $result = \Drupal::service('plugin.manager.mail')->mail('cfd_case_study', 'case_study_proposal_disapproved', $email_to, $langcode, $params, $from, TRUE);
+          if (empty($result['result'])) {
+            \Drupal::messenger()->addError('Error sending email message.');
+          }
         }
 
         \Drupal::messenger()->addError('CFD Case Study proposal No. ' . $proposal_id . ' dis-approved. User has been notified of the dis-approval.');
-        drupal_goto('case-study-project/manage-proposal');
+        \Drupal\Core\Cache\Cache::invalidateTags([
+          'case_study_proposal_list',
+          "case_study_proposal:$proposal_id",
+        ]);
+        $form_state->setRedirect('cfd_case_study.proposal_pending');
         return;
       }
     } //$form_state['values']['approval'] == 2

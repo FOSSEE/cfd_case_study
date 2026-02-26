@@ -131,7 +131,7 @@ cfd_case_study.download_case_study_project_title_files:
   requirements:
     _permission: 'download code'
 cfd_case_study.project_files:
-  path: /case-study-project/download/project-file
+  path: /case-study-project/download/project-file/{proposal_id}
   defaults:
     _title: 'Download Project file'
     _controller: '\Drupal\cfd_case_study\Controller\DefaultController::cfd_case_study_project_files'

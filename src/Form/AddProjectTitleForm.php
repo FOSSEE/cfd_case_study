@@ -10,6 +10,21 @@ namespace Drupal\cfd_case_study\Form;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Render\Element;
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\ReplaceCommand;
+use Drupal\Core\Ajax\HtmlCommand;
+use Drupal\Core\Link;
+use Drupal\Core\Url;
+use Drupal\Core\Routing\TrustedRedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\Core\Database\Database;
+use Drupal\Core\Messenger\MessengerInterface;
+use Drupal\Core\Mail\MailManager;
+use Drupal\Core\Mail\MailManagerInterface;
+use Drupal\user\Entity\User;
 
 class AddProjectTitleForm extends FormBase {
 
@@ -23,11 +38,18 @@ class AddProjectTitleForm extends FormBase {
   public function buildForm(array $form, \Drupal\Core\Form\FormStateInterface $form_state) {
     $user = \Drupal::currentUser();
     /************************ start approve book details ************************/
-    if ($user->uid == 0) {
-      $msg = \Drupal::messenger()->addError(t('It is mandatory to ' . \Drupal\Core\Link::fromTextAndUrl('login', \Drupal\Core\Url::fromRoute('user.page')) . ' on this website to access the case study proposal form. If you are new user please create a new account first.'));
-      drupal_goto('user');
-      return $msg;
-    } //$user->uid == 0
+    if ($user->id() == 0) {
+      $this->messenger()->addError($this->t('It is mandatory to @login_link on this website to access the case study proposal form. If you are a new user, please create a new account first.', [
+        '@login_link' => Link::fromTextAndUrl($this->t('login'), Url::fromRoute('user.page'))->toString(),
+      ]));
+      $form_state->setRedirect('user.login', [], ['query' => \Drupal::destination()->getAsArray()]);
+      return [];
+    }
+    //  if ($user->uid == 0) {
+    //   $msg = \Drupal::messenger()->addError(t('It is mandatory to ' . \Drupal\Core\Link::fromTextAndUrl('login', \Drupal\Core\Url::fromRoute('user.page')) . ' on this website to access the case study proposal form. If you are new user please create a new account first.'));
+    //   drupal_goto('user');
+    //   return $msg;
+    // } //$user->uid == 0
     $form['#attributes'] = [
       'enctype' => "multipart/form-data"
       ];
@@ -56,6 +78,11 @@ class AddProjectTitleForm extends FormBase {
     // 		'#size' => 48,
     // 		'#description' => t('<span style="color:red;">Upload filenames with allowed extensions only. No spaces or any special characters allowed in filename.</span>') . '<br />' . t('<span style="color:red;">Allowed file extensions: ') . variable_get('list_of_available_projects_file', '') . '</span>'
     // 	);
+    $form['upload_project_title_resource_file']['project_title_resource_file_path'] = [
+      '#type' => 'file',
+      '#size' => 48,
+      '#description' => $this->t('<span style="color:red;">Upload filenames with allowed extensions only. No spaces or any special characters allowed in filename.</span>') . '<br />' . $this->t('<span style="color:red;">Allowed file extensions: ') . \Drupal::config('cfd_case_study.settings')->get('list_of_available_projects_file') . '</span>',
+    ];
 
     $form['submit'] = [
       '#type' => 'submit',
@@ -65,83 +92,61 @@ class AddProjectTitleForm extends FormBase {
   }
 
   public function validateForm(array &$form, \Drupal\Core\Form\FormStateInterface $form_state) {
-    if (isset($_FILES['files'])) {
-      /* check if atleast one source or result file is uploaded */
-      if (!($_FILES['files']['name']['project_title_resource_file_path'])) {
-        $form_state->setErrorByName('project_title_resource_file_path', t('Please upload the file'));
-      }
-      /* check for valid filename extensions */
-      foreach ($_FILES['files']['name'] as $file_form_name => $file_name) {
-        if ($file_name) {
-          /* checking file type */
-          // @FIXME
-// // @FIXME
-// // This looks like another module's variable. You'll need to rewrite this call
-// // to ensure that it uses the correct configuration object.
-// $allowed_extensions_str = variable_get('list_of_available_projects_file', '');
-
-          $allowed_extensions = explode(',', $allowed_extensions_str);
-          $fnames = explode('.', strtolower($_FILES['files']['name'][$file_form_name]));
-          $temp_extension = end($fnames);
-          if (!in_array($temp_extension, $allowed_extensions)) {
-            $form_state->setErrorByName($file_form_name, t('Only file with ' . $allowed_extensions_str . ' extensions can be uploaded.'));
-          }
-          if ($_FILES['files']['size'][$file_form_name] <= 0) {
-            $form_state->setErrorByName($file_form_name, t('File size cannot be zero.'));
-          }
-          /* check if valid file name */
-          if (!cfd_case_study_check_valid_filename($_FILES['files']['name'][$file_form_name])) {
-            $form_state->setErrorByName($file_form_name, t('Invalid file name specified. Only alphabets and numbers are allowed as a valid filename.'));
-          }
-        } //$file_name
-      } //$_FILES['files']['name'] as $file_form_name => $file_name
+    $files = \Drupal::request()->files->get('files') ?? [];
+    $upload = $files['project_title_resource_file_path'] ?? NULL;
+    if (!$upload || !$upload->isValid()) {
+      $form_state->setErrorByName('project_title_resource_file_path', $this->t('Please upload the file'));
+      return;
     }
-    return $form_state;
+
+    $allowed_extensions_str = \Drupal::config('cfd_case_study.settings')->get('list_of_available_projects_file');
+    $allowed_extensions = array_filter(array_map('trim', explode(',', (string) $allowed_extensions_str)));
+    $original_name = (string) $upload->getClientOriginalName();
+    $temp_extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
+    if (!empty($allowed_extensions) && !in_array($temp_extension, $allowed_extensions, TRUE)) {
+      $form_state->setErrorByName('project_title_resource_file_path', $this->t('Only file with @ext extensions can be uploaded.', ['@ext' => $allowed_extensions_str]));
+    }
+    if ($upload->getSize() <= 0) {
+      $form_state->setErrorByName('project_title_resource_file_path', $this->t('File size cannot be zero.'));
+    }
+    if (!cfd_case_study_check_valid_filename($original_name)) {
+      $form_state->setErrorByName('project_title_resource_file_path', $this->t('Invalid file name specified. Only alphabets and numbers are allowed as a valid filename.'));
+    }
   }
 
   public function submitForm(array &$form, \Drupal\Core\Form\FormStateInterface $form_state) {
     $user = \Drupal::currentUser();
     $v = $form_state->getValues();
-    $result = "INSERT INTO {list_of_project_titles}
-	(
-	project_title_name
-	)VALUES
-	(
-	:project_title_name
-	)";
-    $args = [":project_title_name" => $v['new_project_title_name']];
-    $result1 = \Drupal::database()->query($result, $args, $result);
+    $result1 = \Drupal::database()->insert('list_of_project_titles')
+      ->fields([
+        'project_title_name' => $v['new_project_title_name'],
+      ])
+      ->execute();
     $dest_path = cfd_case_study_project_titles_resource_file_path();
     //var_dump($dest_path);die;
-    foreach ($_FILES['files']['name'] as $file_form_name => $file_name) {
-      if ($file_name) {
-        /* checking file type */
-        //$file_type = 'S';
-			//var_dump($dest_path . $result1 .'_' . $_FILES['files']['name'][$file_form_name]);die;
-        if (file_exists($dest_path . $result1 . '_' . $_FILES['files']['name'][$file_form_name])) {
-          \Drupal::messenger()->addError(t("Error uploading file. File !filename already exists.", [
-            '!filename' => $_FILES['files']['name'][$file_form_name]
-            ]));
-          //unlink($root_path . $dest_path . $_FILES['files']['name'][$file_form_name]);
-        } //file_exists($root_path . $dest_path . $_FILES['files']['name'][$file_form_name])
-			/* uploading file */
-        if (move_uploaded_file($_FILES['files']['tmp_name'][$file_form_name], $dest_path . $result1 . '_' . $_FILES['files']['name'][$file_form_name])) {
-          $query = "UPDATE {list_of_project_titles} SET filepath = :filepath WHERE id = :id";
-          $args = [
-            ":filepath" => $result1 . '_' . $_FILES['files']['name'][$file_form_name],
-            ":id" => $result1,
-          ];
+    $files = \Drupal::request()->files->get('files') ?? [];
+    $upload = $files['project_title_resource_file_path'] ?? NULL;
+    if ($upload && $upload->isValid()) {
+      $file_system = \Drupal::service('file_system');
+      $file_system->prepareDirectory($dest_path, \Drupal\Core\File\FileSystemInterface::CREATE_DIRECTORY | \Drupal\Core\File\FileSystemInterface::MODIFY_PERMISSIONS);
+      $original_name = $file_system->basename($upload->getClientOriginalName());
+      $target_name = $result1 . '_' . $original_name;
+      $target_path = $dest_path . $target_name;
 
-          $updateresult = \Drupal::database()->query($query, $args);
-          //var_dump($args);die;
-          \Drupal::messenger()->addStatus($file_name . ' uploaded successfully.');
-        } //move_uploaded_file($_FILES['files']['tmp_name'][$file_form_name], $root_path . $dest_path . $_FILES['files']['name'][$file_form_name])
-        else {
-          \Drupal::messenger()->addError('Error uploading file: ' . $dest_path . $result1 . '_' . $file_name);
-        }
-      } //$file_name
-    } //$_FILES['files']['name'] as $file_form_name => $file_name
+      if (file_exists($target_path)) {
+        $this->messenger()->addError($this->t('Error uploading file. File @filename already exists.', ['@filename' => $original_name]));
+      }
+      else {
+        $upload->move($dest_path, $target_name);
+        \Drupal::database()->update('list_of_project_titles')
+          ->fields(['filepath' => $target_name])
+          ->condition('id', $result1)
+          ->execute();
+        $this->messenger()->addStatus($this->t('@filename uploaded successfully.', ['@filename' => $original_name]));
+      }
+    }
     \Drupal::messenger()->addStatus(t('Project title added successfully'));
+    \Drupal\Core\Cache\Cache::invalidateTags(['case_study_project_titles_list']);
   }
 
 }

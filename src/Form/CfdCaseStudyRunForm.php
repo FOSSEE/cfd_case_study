@@ -21,8 +21,10 @@ class CfdCaseStudyRunForm extends FormBase {
   }
 
   public function buildForm(array $form, \Drupal\Core\Form\FormStateInterface $form_state) {
+    \Drupal::moduleHandler()->loadInclude('cfd_case_study', 'inc', 'run');
     $options_first = _list_of_case_study();
-    $url_case_study_id = (int) arg(2);
+    $route_match = \Drupal::routeMatch();
+    $url_case_study_id = (int) ($route_match->getParameter('id') ?? \Drupal::request()->query->get('id'));
     $case_study_data = _case_study_information($url_case_study_id);
     if ($case_study_data == 'Not found') {
       $url_case_study_id = '';
@@ -43,24 +45,39 @@ class CfdCaseStudyRunForm extends FormBase {
       '#options' => _list_of_case_study(),
       '#default_value' => $selected,
       '#ajax' => [
-        'callback' => 'case_study_project_details_callback'
+        'callback' => '::caseStudyProjectDetailsCallback',
+        'event' => 'change',
+        'limit_validation_errors' => [['case_study']],
+        'wrapper' => 'ajax_case_study_wrapper',
         ],
     ];
     if (!$url_case_study_id) {
-      $form['case_study_details'] = [
-        '#type' => 'item',
-        '#markup' => '<div id="ajax_case_study_details"></div>',
+      $form['case_study_wrapper'] = [
+        '#type' => 'container',
+        '#attributes' => ['id' => 'ajax_case_study_wrapper'],
       ];
-      $form['selected_case_study'] = [
-        '#type' => 'item',
-        '#markup' => '<div id="ajax_selected_case_study"></div>',
+      $form['case_study_wrapper']['case_study_details'] = [
+        '#type' => 'container',
+        '#attributes' => ['id' => 'ajax_case_study_details'],
+      ];
+      $form['case_study_wrapper']['selected_case_study'] = [
+        '#type' => 'container',
+        '#attributes' => ['id' => 'ajax_selected_case_study'],
       ];
     } //!$url_case_study_id
     else {
       $case_study_default_value = $url_case_study_id;
-      $form['case_study_details'] = [
+      $form['case_study_wrapper'] = [
+        '#type' => 'container',
+        '#attributes' => ['id' => 'ajax_case_study_wrapper'],
+      ];
+      $form['case_study_wrapper']['case_study_details'] = [
         '#type' => 'item',
         '#markup' => '<div id="ajax_case_study_details">' . _case_study_details($case_study_default_value) . '</div>',
+      ];
+      $form['case_study_wrapper']['selected_case_study'] = [
+        '#type' => 'container',
+        '#attributes' => ['id' => 'ajax_selected_case_study'],
       ];
       // @FIXME
       // l() expects a Url object, created from a route name or external URI.
@@ -71,6 +88,12 @@ class CfdCaseStudyRunForm extends FormBase {
 
     }
     return $form;
+  }
+
+  public function caseStudyProjectDetailsCallback(array &$form, FormStateInterface $form_state) {
+    \Drupal::moduleHandler()->loadInclude('cfd_case_study', 'inc', 'run');
+    $form_state->setRebuild(TRUE);
+    return $form['case_study_wrapper'];
   }
   public function submitForm(array &$form, \Drupal\Core\Form\FormStateInterface $form_state){
   }

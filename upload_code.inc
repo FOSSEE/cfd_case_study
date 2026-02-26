@@ -383,7 +383,7 @@ function cfd_case_study_upload_abstract_code_form_submit($form, &$form_state)
         'Cc' => $cc,
         'Bcc' => $bcc,
     );
-    if (!drupal_mail('case_study', 'abstract_uploaded', $email_to, language_default(), $params, $from, true)) {
+    if (!drupal_mail('cfd_case_study', 'abstract_uploaded', $email_to, language_default(), $params, $from, true)) {
         \Drupal::messenger()->addError('Error sending email message.');
     }
 
@@ -664,7 +664,7 @@ function cfd_case_study_edit_upload_abstract_code_form_submit($form, &$form_stat
         'Cc' => $cc,
         'Bcc' => $bcc,
     );
-    if (!drupal_mail('case_study', 'abstract_edit_file_uploaded', $email_to, language_default(), $params, $from, true)) {
+    if (!drupal_mail('cfd_case_study', 'abstract_edit_file_uploaded', $email_to, language_default(), $params, $from, true)) {
         \Drupal::messenger()->addError('Error sending email message.');
     }
     drupal_goto('case-study-project/abstract-code/edit-upload-files');
