@@ -4,22 +4,25 @@ function cfd_case_study_proposal_pending()
 {
     /* get pending proposals to be approved */
     $pending_rows = array();
-    $query = db_select('case_study_proposal');
+    $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
     $query->condition('approval_status', 0);
     $query->orderBy('id', 'DESC');
     $pending_q = $query->execute();
     while ($pending_data = $pending_q->fetchObject()) {
-        $pending_rows[$pending_data->id] = array(
-            date('d-m-Y', $pending_data->creation_date),
-            l($pending_data->name_title . ' ' . $pending_data->contributor_name, 'user/' . $pending_data->uid),
-            $pending_data->project_title,
-            l('Approve', 'case-study-project/manage-proposal/approve/' . $pending_data->id) . ' | ' . l('Edit', 'case-study-project/manage-proposal/edit/' . $pending_data->id),
-        );
+        // @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $pending_rows[$pending_data->id] = array(
+//             date('d-m-Y', $pending_data->creation_date),
+//             l($pending_data->name_title . ' ' . $pending_data->contributor_name, 'user/' . $pending_data->uid),
+//             $pending_data->project_title,
+//             l('Approve', 'case-study-project/manage-proposal/approve/' . $pending_data->id) . ' | ' . l('Edit', 'case-study-project/manage-proposal/edit/' . $pending_data->id),
+//         );
+
     } //$pending_data = $pending_q->fetchObject()
     /* check if there are any pending proposals */
     if (!$pending_rows) {
-        drupal_set_message(t('There are no pending proposals.'), 'status');
+        \Drupal::messenger()->addStatus(t('There are no pending proposals.'));
         return '';
     } //!$pending_rows
     $pending_header = array(
@@ -29,17 +32,26 @@ function cfd_case_study_proposal_pending()
         'Action',
     );
     //$output = theme_table($pending_header, $pending_rows);
-    $output = theme('table', array(
-        'header' => $pending_header,
-        'rows' => $pending_rows,
-    ));
+    // @FIXME
+// theme() has been renamed to _theme() and should NEVER be called directly.
+// Calling _theme() directly can alter the expected output and potentially
+// introduce security issues (see https://www.drupal.org/node/2195739). You
+// should use renderable arrays instead.
+// 
+// 
+// @see https://www.drupal.org/node/2195739
+// $output = theme('table', array(
+//         'header' => $pending_header,
+//         'rows' => $pending_rows,
+//     ));
+
     return $output;
 }
 function cfd_case_study_proposal_all()
 {
     /* get pending proposals to be approved */
     $proposal_rows = array();
-    $query = db_select('case_study_proposal');
+    $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
     $query->orderBy('id', 'DESC');
     $proposal_q = $query->execute();
@@ -77,19 +89,22 @@ function cfd_case_study_proposal_all()
         else {
             $approval_date = date('d-m-Y', $proposal_data->approval_date);
         }
-        $proposal_rows[] = array(
-            date('d-m-Y', $proposal_data->creation_date),
-            l($proposal_data->contributor_name, 'user/' . $proposal_data->uid),
-            $proposal_data->project_title,
-            $approval_date,
-            $actual_completion_date,
-            $approval_status,
-            l('Status', 'case-study-project/manage-proposal/status/' . $proposal_data->id) . ' | ' . l('Edit', 'case-study-project/manage-proposal/edit/' . $proposal_data->id),
-        );
+        // @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $proposal_rows[] = array(
+//             date('d-m-Y', $proposal_data->creation_date),
+//             l($proposal_data->contributor_name, 'user/' . $proposal_data->uid),
+//             $proposal_data->project_title,
+//             $approval_date,
+//             $actual_completion_date,
+//             $approval_status,
+//             l('Status', 'case-study-project/manage-proposal/status/' . $proposal_data->id) . ' | ' . l('Edit', 'case-study-project/manage-proposal/edit/' . $proposal_data->id),
+//         );
+
     } //$proposal_data = $proposal_q->fetchObject()
     /* check if there are any pending proposals */
     if (!$proposal_rows) {
-        drupal_set_message(t('There are no proposals.'), 'status');
+        \Drupal::messenger()->addStatus(t('There are no proposals.'));
         return '';
     } //!$proposal_rows
     $proposal_header = array(
@@ -101,17 +116,26 @@ function cfd_case_study_proposal_all()
         'Status',
         'Action',
     );
-    $output = theme('table', array(
-        'header' => $proposal_header,
-        'rows' => $proposal_rows,
-    ));
+    // @FIXME
+// theme() has been renamed to _theme() and should NEVER be called directly.
+// Calling _theme() directly can alter the expected output and potentially
+// introduce security issues (see https://www.drupal.org/node/2195739). You
+// should use renderable arrays instead.
+// 
+// 
+// @see https://www.drupal.org/node/2195739
+// $output = theme('table', array(
+//         'header' => $proposal_header,
+//         'rows' => $proposal_rows,
+//     ));
+
     return $output;
 }
 function cfd_case_study_proposal_edit_file_all()
 {
     /* get pending proposals to be approved */
     $proposal_rows = array();
-    $query = db_select('case_study_proposal');
+    $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
     $query->orderBy('id', 'DESC');
     $query->condition('approval_status', '0', '<>');
@@ -153,19 +177,22 @@ function cfd_case_study_proposal_edit_file_all()
         else {
             $approval_date = date('d-m-Y', $proposal_data->approval_date);
         }
-        $proposal_rows[] = array(
-            date('d-m-Y', $proposal_data->creation_date),
-            l($proposal_data->contributor_name, 'user/' . $proposal_data->uid),
-            $proposal_data->project_title,
-            $approval_date,
-            $actual_completion_date,
-            $approval_status,
-            l('Edit', 'case-study-project/abstract-code/edit-upload-files/' . $proposal_data->id),
-        );
+        // @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $proposal_rows[] = array(
+//             date('d-m-Y', $proposal_data->creation_date),
+//             l($proposal_data->contributor_name, 'user/' . $proposal_data->uid),
+//             $proposal_data->project_title,
+//             $approval_date,
+//             $actual_completion_date,
+//             $approval_status,
+//             l('Edit', 'case-study-project/abstract-code/edit-upload-files/' . $proposal_data->id),
+//         );
+
     } //$proposal_data = $proposal_q->fetchObject()
     /* check if there are any pending proposals */
     if (!$proposal_rows) {
-        drupal_set_message(t('There are no proposals.'), 'status');
+        \Drupal::messenger()->addStatus(t('There are no proposals.'));
         return '';
     } //!$proposal_rows
     $proposal_header = array(
@@ -177,10 +204,19 @@ function cfd_case_study_proposal_edit_file_all()
         'Status',
         'Action',
     );
-    $output = theme('table', array(
-        'header' => $proposal_header,
-        'rows' => $proposal_rows,
-    ));
+    // @FIXME
+// theme() has been renamed to _theme() and should NEVER be called directly.
+// Calling _theme() directly can alter the expected output and potentially
+// introduce security issues (see https://www.drupal.org/node/2195739). You
+// should use renderable arrays instead.
+// 
+// 
+// @see https://www.drupal.org/node/2195739
+// $output = theme('table', array(
+//         'header' => $proposal_header,
+//         'rows' => $proposal_rows,
+//     ));
+
     return $output;
 }
 /******************************************************************************/
@@ -188,14 +224,14 @@ function cfd_case_study_proposal_edit_file_all()
 /******************************************************************************/
 function cfd_case_study_proposal_approval_form($form, &$form_state)
 {
-    global $user;
+    $user = \Drupal::currentUser();
     /* get current proposal */
     $proposal_id = (int) arg(3);
-    $query = db_select('case_study_proposal');
+    $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
     $query->condition('id', $proposal_id);
     $proposal_q = $query->execute();
-    $query_abstract = db_select('case_study_submitted_abstracts_file');
+    $query_abstract = \Drupal::database()->select('case_study_submitted_abstracts_file');
     $query_abstract->fields('case_study_submitted_abstracts_file');
     $query_abstract->condition('proposal_id', $proposal_id);
     $query_abstract->condition('filetype', 'A');
@@ -205,13 +241,13 @@ function cfd_case_study_proposal_approval_form($form, &$form_state)
             /* everything ok */
         } //$proposal_data = $proposal_q->fetchObject()
         else {
-            drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
+            \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
             drupal_goto('case-study-project/manage-proposal');
             return;
         }
     } //$proposal_q
     else {
-        drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
+        \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
         drupal_goto('case-study-project/manage-proposal');
         return;
     }
@@ -230,25 +266,28 @@ function cfd_case_study_proposal_approval_form($form, &$form_state)
     } else {
         $faculty_email = $proposal_data->faculty_email;
     }
-    $query = db_select('case_study_software_version');
+    $query = \Drupal::database()->select('case_study_software_version');
     $query->fields('case_study_software_version');
     $query->condition('id', $proposal_data->version_id);
     $version_data = $query->execute()->fetchObject();
     $version = $version_data->case_study_version;
-    $query = db_select('case_study_simulation_type');
+    $query = \Drupal::database()->select('case_study_simulation_type');
     $query->fields('case_study_simulation_type');
     $query->condition('id', $proposal_data->simulation_type_id);
     $simulation_type_data = $query->execute()->fetchObject();
     $simulation_type = $simulation_type_data->simulation_type;
-    $form['contributor_name'] = array(
-        '#type' => 'item',
-        '#markup' => l($proposal_data->name_title . ' ' . $proposal_data->contributor_name, 'user/' . $proposal_data->uid),
-        '#title' => t('Student name'),
-    );
+    // @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $form['contributor_name'] = array(
+//         '#type' => 'item',
+//         '#markup' => l($proposal_data->name_title . ' ' . $proposal_data->contributor_name, 'user/' . $proposal_data->uid),
+//         '#title' => t('Student name'),
+//     );
+
     $form['student_email_id'] = array(
         '#title' => t('Student Email'),
         '#type' => 'item',
-        '#markup' => user_load($proposal_data->uid)->mail,
+        '#markup' => \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid)->mail,
         '#title' => t('Email'),
     );
     $form['contributor_contact_no'] = array(
@@ -338,11 +377,14 @@ function cfd_case_study_proposal_approval_form($form, &$form_state)
         $str = substr($query_abstract_pdf->filename, strrpos($query_abstract_pdf->filename, '/'));
         $resource_file = ltrim($str, '/');
 
-        $form['abstract_file_path'] = array(
-            '#type' => 'item',
-            '#title' => t('Abstract file '),
-            '#markup' => l($resource_file, 'case-study-project/download/project-file/' . $proposal_id) . "",
-        );
+        // @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $form['abstract_file_path'] = array(
+//             '#type' => 'item',
+//             '#title' => t('Abstract file '),
+//             '#markup' => l($resource_file, 'case-study-project/download/project-file/' . $proposal_id) . "",
+//         );
+
     } //$proposal_data->user_defined_compound_filepath != ""
     else {
         $form['abstract_file_path'] = array(
@@ -380,10 +422,13 @@ function cfd_case_study_proposal_approval_form($form, &$form_state)
         '#type' => 'submit',
         '#value' => t('Submit'),
     );
-    $form['cancel'] = array(
-        '#type' => 'item',
-        '#markup' => l(t('Cancel'), 'case-study-project/manage-proposal'),
-    );
+    // @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $form['cancel'] = array(
+//         '#type' => 'item',
+//         '#markup' => l(t('Cancel'), 'case-study-project/manage-proposal'),
+//     );
+
     return $form;
 }
 function cfd_case_study_proposal_approval_form_validate($form, &$form_state)
@@ -396,10 +441,10 @@ function cfd_case_study_proposal_approval_form_validate($form, &$form_state)
 }
 function cfd_case_study_proposal_approval_form_submit($form, &$form_state)
 {
-    global $user;
+    $user = \Drupal::currentUser();
     /* get current proposal */
     $proposal_id = (int) arg(3);
-    $query = db_select('case_study_proposal');
+    $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
     $query->condition('id', $proposal_id);
     $proposal_q = $query->execute();
@@ -408,13 +453,13 @@ function cfd_case_study_proposal_approval_form_submit($form, &$form_state)
             /* everything ok */
         } //$proposal_data = $proposal_q->fetchObject()
         else {
-            drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
+            \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
             drupal_goto('case-study-project/manage-proposal');
             return;
         }
     } //$proposal_q
     else {
-        drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
+        \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
         drupal_goto('case-study-project/manage-proposal');
         return;
     }
@@ -425,13 +470,28 @@ function cfd_case_study_proposal_approval_form_submit($form, &$form_state)
             ":date" => time(),
             ":proposal_id" => $proposal_id,
         );
-        db_query($query, $args);
+        \Drupal::database()->query($query, $args);
         /* sending email */
-        $user_data = user_load($proposal_data->uid);
+        $user_data = \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid);
         $email_to = $user_data->mail;
-        $from = variable_get('case_study_from_email', '');
-        $bcc = $user->mail . ', ' . variable_get('case_study_emails', '');
-        $cc = variable_get('case_study_cc_emails', '');
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $from = variable_get('case_study_from_email', '');
+
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $bcc = $user->mail . ', ' . variable_get('case_study_emails', '');
+
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $cc = variable_get('case_study_cc_emails', '');
+
         $params['case_study_proposal_approved']['proposal_id'] = $proposal_id;
         $params['case_study_proposal_approved']['user_id'] = $proposal_data->uid;
         $params['case_study_proposal_approved']['headers'] = array(
@@ -443,11 +503,11 @@ function cfd_case_study_proposal_approval_form_submit($form, &$form_state)
             'Cc' => $cc,
             'Bcc' => $bcc,
         );
-        if (!drupal_mail('case_study', 'case_study_proposal_approved', $email_to, language_default(), $params, $from, true)) {
-            drupal_set_message('Error sending email message.', 'error');
+        if (!drupal_mail('cfd_case_study', 'case_study_proposal_approved', $email_to, language_default(), $params, $from, true)) {
+            \Drupal::messenger()->addError('Error sending email message.');
         }
 
-        drupal_set_message('CFD Case Study proposal No. ' . $proposal_id . ' approved. User has been notified of the approval.', 'status');
+        \Drupal::messenger()->addStatus('CFD Case Study proposal No. ' . $proposal_id . ' approved. User has been notified of the approval.');
         drupal_goto('case-study-project/manage-proposal');
         return;
     } //$form_state['values']['approval'] == 1
@@ -459,13 +519,28 @@ function cfd_case_study_proposal_approval_form_submit($form, &$form_state)
             ":dissapproval_reason" => $form_state['values']['message'],
             ":proposal_id" => $proposal_id,
         );
-        $result = db_query($query, $args);
+        $result = \Drupal::database()->query($query, $args);
         /* sending email */
-        $user_data = user_load($proposal_data->uid);
+        $user_data = \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid);
         $email_to = $user_data->mail;
-        $from = variable_get('case_study_from_email', '');
-        $bcc = $user->mail . ', ' . variable_get('case_study_emails', '');
-        $cc = variable_get('case_study_cc_emails', '');
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $from = variable_get('case_study_from_email', '');
+
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $bcc = $user->mail . ', ' . variable_get('case_study_emails', '');
+
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $cc = variable_get('case_study_cc_emails', '');
+
         $params['case_study_proposal_disapproved']['proposal_id'] = $proposal_id;
         $params['case_study_proposal_disapproved']['user_id'] = $proposal_data->uid;
         $params['case_study_proposal_disapproved']['headers'] = array(
@@ -477,11 +552,11 @@ function cfd_case_study_proposal_approval_form_submit($form, &$form_state)
             'Cc' => $cc,
             'Bcc' => $bcc,
         );
-        if (!drupal_mail('case_study', 'case_study_proposal_disapproved', $email_to, language_default(), $params, $from, true)) {
-            drupal_set_message('Error sending email message.', 'error');
+        if (!drupal_mail('cfd_case_study', 'case_study_proposal_disapproved', $email_to, language_default(), $params, $from, true)) {
+            \Drupal::messenger()->addError('Error sending email message.');
         }
 
-        drupal_set_message('CFD Case Study proposal No. ' . $proposal_id . ' dis-approved. User has been notified of the dis-approval.', 'error');
+        \Drupal::messenger()->addError('CFD Case Study proposal No. ' . $proposal_id . ' dis-approved. User has been notified of the dis-approval.');
         drupal_goto('case-study-project/manage-proposal');
         return;
     } //$form_state['values']['approval'] == 2
@@ -491,14 +566,14 @@ function cfd_case_study_proposal_approval_form_submit($form, &$form_state)
 /******************************************************************************/
 function cfd_case_study_proposal_status_form($form, &$form_state)
 {
-    global $user;
+    $user = \Drupal::currentUser();
     /* get current proposal */
     $proposal_id = (int) arg(3);
-    $query = db_select('case_study_proposal');
+    $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
     $query->condition('id', $proposal_id);
     $proposal_q = $query->execute();
-    $query_abstract = db_select('case_study_submitted_abstracts_file');
+    $query_abstract = \Drupal::database()->select('case_study_submitted_abstracts_file');
     $query_abstract->fields('case_study_submitted_abstracts_file');
     $query_abstract->condition('proposal_id', $proposal_id);
     $query_abstract->condition('filetype', 'A');
@@ -508,13 +583,13 @@ function cfd_case_study_proposal_status_form($form, &$form_state)
             /* everything ok */
         } //$proposal_data = $proposal_q->fetchObject()
         else {
-            drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
+            \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
             drupal_goto('case-study-project/manage-proposal');
             return;
         }
     } //$proposal_q
     else {
-        drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
+        \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
         drupal_goto('case-study-project/manage-proposal');
         return;
     }
@@ -533,7 +608,7 @@ function cfd_case_study_proposal_status_form($form, &$form_state)
     } else {
         $faculty_email = $proposal_data->faculty_email;
     }
-    $query = db_select('case_study_software_version');
+    $query = \Drupal::database()->select('case_study_software_version');
     $query->fields('case_study_software_version');
     $query->condition('id', $proposal_data->version_id);
     $version_data = $query->execute()->fetchObject();
@@ -543,7 +618,7 @@ function cfd_case_study_proposal_status_form($form, &$form_state)
     else{
     $version = $version_data->case_study_version;
     }
-    $query = db_select('case_study_simulation_type');
+    $query = \Drupal::database()->select('case_study_simulation_type');
     $query->fields('case_study_simulation_type');
     $query->condition('id', $proposal_data->simulation_type_id);
     $simulation_type_data = $query->execute()->fetchObject();
@@ -553,15 +628,18 @@ function cfd_case_study_proposal_status_form($form, &$form_state)
     else{
     $simulation_type = $simulation_type_data->simulation_type;
     }
-    $form['contributor_name'] = array(
-        '#type' => 'item',
-        '#markup' => l($proposal_data->name_title . ' ' . $proposal_data->contributor_name, 'user/' . $proposal_data->uid),
-        '#title' => t('Student name'),
-    );
+    // @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $form['contributor_name'] = array(
+//         '#type' => 'item',
+//         '#markup' => l($proposal_data->name_title . ' ' . $proposal_data->contributor_name, 'user/' . $proposal_data->uid),
+//         '#title' => t('Student name'),
+//     );
+
     $form['student_email_id'] = array(
         '#title' => t('Student Email'),
         '#type' => 'item',
-        '#markup' => user_load($proposal_data->uid)->mail,
+        '#markup' => \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid)->mail,
         '#title' => t('Email'),
     );
     $form['university'] = array(
@@ -642,11 +720,14 @@ function cfd_case_study_proposal_status_form($form, &$form_state)
         $str = substr($query_abstract_pdf->filename, strrpos($query_abstract_pdf->filename, '/'));
         $resource_file = ltrim($str, '/');
 
-        $form['abstract_file_path'] = array(
-            '#type' => 'item',
-            '#title' => t('Abstract file '),
-            '#markup' => l($resource_file, 'case-study-project/download/project-file/' . $proposal_id) . "",
-        );
+        // @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $form['abstract_file_path'] = array(
+//             '#type' => 'item',
+//             '#title' => t('Abstract file '),
+//             '#markup' => l($resource_file, 'case-study-project/download/project-file/' . $proposal_id) . "",
+//         );
+
     } //$proposal_data->user_defined_compound_filepath != ""
     else {
         $form['abstract_file_path'] = array(
@@ -682,11 +763,14 @@ function cfd_case_study_proposal_status_form($form, &$form_state)
         '#title' => t('Proposal Status'),
     );
     if ($proposal_data->approval_status == 0) {
-        $form['approve'] = array(
-            '#type' => 'item',
-            '#markup' => l('Click here', 'case-study-project/manage-proposal/approve/' . $proposal_id),
-            '#title' => t('Approve'),
-        );
+        // @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $form['approve'] = array(
+//             '#type' => 'item',
+//             '#markup' => l('Click here', 'case-study-project/manage-proposal/approve/' . $proposal_id),
+//             '#title' => t('Approve'),
+//         );
+
     } //$proposal_data->approval_status == 0
     if ($proposal_data->approval_status == 1) {
         $form['completed'] = array(
@@ -706,19 +790,22 @@ function cfd_case_study_proposal_status_form($form, &$form_state)
         '#type' => 'submit',
         '#value' => t('Submit'),
     );
-    $form['cancel'] = array(
-        '#type' => 'markup',
-        '#markup' => l(t('Cancel'), 'case-study-project/manage-proposal/all'),
-    );
+    // @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $form['cancel'] = array(
+//         '#type' => 'markup',
+//         '#markup' => l(t('Cancel'), 'case-study-project/manage-proposal/all'),
+//     );
+
     return $form;
 }
 function cfd_case_study_proposal_status_form_submit($form, &$form_state)
 {
-    global $user;
+    $user = \Drupal::currentUser();
     /* get current proposal */
     $proposal_id = (int) arg(3);
     //$proposal_q = db_query("SELECT * FROM {case_study_proposal} WHERE id = %d", $proposal_id);
-    $query = db_select('case_study_proposal');
+    $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
     $query->condition('id', $proposal_id);
     $proposal_q = $query->execute();
@@ -727,13 +814,13 @@ function cfd_case_study_proposal_status_form_submit($form, &$form_state)
             /* everything ok */
         } //$proposal_data = $proposal_q->fetchObject()
         else {
-            drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
+            \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
             drupal_goto('case-study-project/manage-proposal');
             return;
         }
     } //$proposal_q
     else {
-        drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
+        \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
         drupal_goto('case-study-project/manage-proposal');
         return;
     }
@@ -745,18 +832,33 @@ function cfd_case_study_proposal_status_form_submit($form, &$form_state)
             ":proposal_id" => $proposal_id,
             ":expected_completion_date" => time(),
         );
-        $result = db_query($up_query, $args);
+        $result = \Drupal::database()->query($up_query, $args);
         CreateReadmeFileCaseStudyProject($proposal_id);
         if (!$result) {
-            drupal_set_message('Error in update status', 'error');
+            \Drupal::messenger()->addError('Error in update status');
             return;
         } //!$result
         /* sending email */
-        $user_data = user_load($proposal_data->uid);
+        $user_data = \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid);
         $email_to = $user_data->mail;
-        $from = variable_get('case_study_from_email', '');
-        $bcc = $user->mail . ', ' . variable_get('case_study_emails', '');
-        $cc = variable_get('case_study_cc_emails', '');
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $from = variable_get('case_study_from_email', '');
+
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $bcc = $user->mail . ', ' . variable_get('case_study_emails', '');
+
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $cc = variable_get('case_study_cc_emails', '');
+
         $params['case_study_proposal_completed']['proposal_id'] = $proposal_id;
         $params['case_study_proposal_completed']['user_id'] = $proposal_data->uid;
         $params['case_study_proposal_completed']['headers'] = array(
@@ -768,11 +870,11 @@ function cfd_case_study_proposal_status_form_submit($form, &$form_state)
             'Cc' => $cc,
             'Bcc' => $bcc,
         );
-        if (!drupal_mail('case_study', 'case_study_proposal_completed', $email_to, language_default(), $params, $from, true)) {
-            drupal_set_message('Error sending email message.', 'error');
+        if (!drupal_mail('cfd_case_study', 'case_study_proposal_completed', $email_to, language_default(), $params, $from, true)) {
+            \Drupal::messenger()->addError('Error sending email message.');
         }
 
-        drupal_set_message('Congratulations! CFD Case Study proposal has been marked as completed. User has been notified of the completion.', 'status');
+        \Drupal::messenger()->addStatus('Congratulations! CFD Case Study proposal has been marked as completed. User has been notified of the completion.');
     }
     drupal_goto('case-study-project/manage-proposal');
     return;
@@ -783,11 +885,11 @@ function cfd_case_study_proposal_status_form_submit($form, &$form_state)
 /******************************************************************************/
 function cfd_case_study_proposal_edit_form($form, &$form_state)
 {
-    global $user;
+    $user = \Drupal::currentUser();
     /* get current proposal */
     $proposal_id = (int) arg(3);
     //$proposal_q = db_query("SELECT * FROM {case_study_proposal} WHERE id = %d", $proposal_id);
-    $query = db_select('case_study_proposal');
+    $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
     $query->condition('id', $proposal_id);
     $proposal_q = $query->execute();
@@ -807,7 +909,7 @@ function cfd_case_study_proposal_edit_form($form, &$form_state)
         drupal_goto('case-study-project/manage-proposal');
         return;
     }*/
-    $user_data = user_load($proposal_data->uid);
+    $user_data = \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid);
     $form['name_title'] = array(
         '#type' => 'select',
         '#title' => t('Title'),
@@ -1059,10 +1161,13 @@ function cfd_case_study_proposal_edit_form($form, &$form_state)
         '#type' => 'submit',
         '#value' => t('Submit'),
     );
-    $form['cancel'] = array(
-        '#type' => 'item',
-        '#markup' => l(t('Cancel'), 'case-study-project/manage-proposal'),
-    );
+    // @FIXME
+// l() expects a Url object, created from a route name or external URI.
+// $form['cancel'] = array(
+//         '#type' => 'item',
+//         '#markup' => l(t('Cancel'), 'case-study-project/manage-proposal'),
+//     );
+
     return $form;
 }
 
@@ -1072,14 +1177,14 @@ function ajax_solver_used_callback($form, $form_state){
         $form['solver_used']['#options'] = _cs_list_of_solvers($simulation_id);
         $form['solver_used']['#required'] = TRUE;
         $form['solver_used']['#validated'] = TRUE;
-        $commands[] = ajax_command_replace('#ajax-solver-replace', drupal_render($form['solver_used']));
+        $commands[] = ajax_command_replace('#ajax-solver-replace', \Drupal::service("renderer")->render($form['solver_used']));
         $commands[] = ajax_command_html('#ajax-solver-text-replace', '');
     }
     else{
         $commands[] = ajax_command_html('#ajax-solver-replace', '');
         $form['solver_used_text']['#required'] = TRUE;
         $form['solver_used_text']['#validated'] = TRUE;
-        $commands[] = ajax_command_replace('#ajax-solver-text-replace', drupal_render($form['solver_used_text']));
+        $commands[] = ajax_command_replace('#ajax-solver-text-replace', \Drupal::service("renderer")->render($form['solver_used_text']));
     }
     return array(
         '#type' => 'ajax',
@@ -1112,10 +1217,10 @@ function cfd_case_study_proposal_edit_form_validate($form, $form_state){
 }
 function cfd_case_study_proposal_edit_form_submit($form, &$form_state)
 {
-    global $user;
+    $user = \Drupal::currentUser();
     /* get current proposal */
     $proposal_id = (int) arg(3);
-    $query = db_select('case_study_proposal');
+    $query = \Drupal::database()->select('case_study_proposal');
     $query->fields('case_study_proposal');
     $query->condition('id', $proposal_id);
     $proposal_q = $query->execute();
@@ -1124,24 +1229,39 @@ function cfd_case_study_proposal_edit_form_submit($form, &$form_state)
             /* everything ok */
         } //$proposal_data = $proposal_q->fetchObject()
         else {
-            drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
+            \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
             drupal_goto('case-study-project/manage-proposal');
             return;
         }
     } //$proposal_q
     else {
-        drupal_set_message(t('Invalid proposal selected. Please try again.'), 'error');
+        \Drupal::messenger()->addError(t('Invalid proposal selected. Please try again.'));
         drupal_goto('case-study-project/manage-proposal');
         return;
     }
     /* delete proposal */
     if ($form_state['values']['delete_proposal'] == 1) {
         /* sending email */
-        $user_data = user_load($proposal_data->uid);
+        $user_data = \Drupal::entityTypeManager()->getStorage('user')->load($proposal_data->uid);
         $email_to = $user_data->mail;
-        $from = variable_get('case_study_from_email', '');
-        $bcc = variable_get('case_study_emails', '');
-        $cc = variable_get('case_study_cc_emails', '');
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $from = variable_get('case_study_from_email', '');
+
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $bcc = variable_get('case_study_emails', '');
+
+        // @FIXME
+// // @FIXME
+// // This looks like another module's variable. You'll need to rewrite this call
+// // to ensure that it uses the correct configuration object.
+// $cc = variable_get('case_study_cc_emails', '');
+
         $params['case_study_proposal_deleted']['proposal_id'] = $proposal_id;
         $params['case_study_proposal_deleted']['user_id'] = $proposal_data->uid;
         $params['case_study_proposal_deleted']['headers'] = array(
@@ -1153,16 +1273,16 @@ function cfd_case_study_proposal_edit_form_submit($form, &$form_state)
             'Cc' => $cc,
             'Bcc' => $bcc,
         );
-        if (!drupal_mail('case_study', 'case_study_proposal_deleted', $email_to, user_preferred_language($user), $params, $from, true)) {
-            drupal_set_message('Error sending email message.', 'error');
+        if (!drupal_mail('cfd_case_study', 'case_study_proposal_deleted', $email_to, user_preferred_language($user), $params, $from, true)) {
+            \Drupal::messenger()->addError('Error sending email message.');
         }
 
-        drupal_set_message(t('Case Study proposal has been deleted.'), 'status');
+        \Drupal::messenger()->addStatus(t('Case Study proposal has been deleted.'));
         if (rrmdir_project($proposal_id) == true) {
-            $query = db_delete('case_study_proposal');
+            $query = \Drupal::database()->delete('case_study_proposal');
             $query->condition('id', $proposal_id);
             $num_deleted = $query->execute();
-            drupal_set_message(t('Proposal Deleted'), 'status');
+            \Drupal::messenger()->addStatus(t('Proposal Deleted'));
             drupal_goto('case-study-project/manage-proposal');
             return;
         } //rrmdir_project($proposal_id) == TRUE
@@ -1223,6 +1343,6 @@ function cfd_case_study_proposal_edit_form_submit($form, &$form_state)
         ':directory_name' => $directory_name,
         ':proposal_id' => $proposal_id,
     );
-    $result = db_query($query, $args);
-    drupal_set_message(t('Proposal Updated'), 'status');
+    $result = \Drupal::database()->query($query, $args);
+    \Drupal::messenger()->addStatus(t('Proposal Updated'));
 }

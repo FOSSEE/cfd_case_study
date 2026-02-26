@@ -2,11 +2,11 @@
 // $Id$
 function cfd_case_study_download_full_project()
 {
-	global $user;
+	$user = \Drupal::currentUser();
 	$id = arg(3);
 	$root_path = cfd_case_study_path();
 	//var_dump($root_path);die;
-	$query = db_select('case_study_proposal');
+	$query = \Drupal::database()->select('case_study_proposal');
 	$query->fields('case_study_proposal');
 	$query->condition('id', $id);
 	$case_study_q = $query->execute();
@@ -17,14 +17,14 @@ function cfd_case_study_download_full_project()
 	/* creating zip archive on the server */
 	$zip = new ZipArchive();
 	$zip->open($zip_filename, ZipArchive::CREATE);
-	$query = db_select('case_study_proposal');
+	$query = \Drupal::database()->select('case_study_proposal');
 	$query->fields('case_study_proposal');
 	$query->condition('id', $id);
 	$circuit_simulation_udc_q = $query->execute();
-	$query = db_select('case_study_proposal');
+	$query = \Drupal::database()->select('case_study_proposal');
 	$query->fields('case_study_proposal');
 	$query->condition('id', $id);
-	$query = db_select('case_study_submitted_abstracts_file');
+	$query = \Drupal::database()->select('case_study_submitted_abstracts_file');
 	$query->fields('case_study_submitted_abstracts_file');
 	$query->condition('proposal_id', $id);
 	$project_files = $query->execute();
@@ -60,14 +60,14 @@ function cfd_case_study_download_full_project()
 		}
 	} //$zip_file_count > 0
 	else {
-		drupal_set_message("There are no case study project in this proposal to download", 'error');
+		\Drupal::messenger()->addError("There are no case study project in this proposal to download");
 		drupal_goto('circuit-simulation-project/full-download/project');
 	}
 }
 /*
 function circuit_simulation_download_completed_project()
 {
-		global $user;
+		$user = \Drupal::currentUser();
 	$id = arg(3);
 	$root_path = cfd_case_study_path();
 	$query = db_select('case_study_proposal');

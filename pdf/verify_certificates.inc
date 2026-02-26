@@ -1,7 +1,12 @@
 <?php
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Ajax\AjaxResponse;
+use Drupal\Core\Ajax\HtmlCommand;
 function verify_certificates($qr_code = 0)
 {
-	$qr_code = arg(3);
+	$route_match = \Drupal::routeMatch();
+	$qr_code = $route_match->getParameter('qr_code') ?? \Drupal::request()->query->get('qr_code');
 	$page_content = "";
 	if ($qr_code)
 	{
@@ -9,12 +14,12 @@ function verify_certificates($qr_code = 0)
 	} //$qr_code
 	else
 	{
-		$verify_certificates_form = drupal_get_form("verify_certificates_form");
-		$page_content = drupal_render($verify_certificates_form);
+		$verify_certificates_form = \Drupal::formBuilder()->getForm("verify_certificates_form");
+		$page_content = \Drupal::service("renderer")->render($verify_certificates_form);
 	}
 	return $page_content;
 }
-function verify_certificates_form($form, &$form_state)
+function verify_certificates_form(array $form, FormStateInterface $form_state)
 {
 	$form = array();
 	$form['Title'] = array(
@@ -45,22 +50,18 @@ function verify_certificates_form($form, &$form_state)
 	);
 	return $form;
 }
-function verify_certificates_form_submit($form, &$form_state)
+function verify_certificates_form_submit(array &$form, FormStateInterface $form_state)
 {
-	$page_content = "";
-	$v = $form_state["values"];
-	$qr_code = $v["QR_code"];
+	$qr_code = $form_state->getValue('QR_code');
 	$page_content = verify_qrcode_fromdb($qr_code);
-	$form['displaytable']['#markup'] = $page_content;
-	$commands[] = ajax_command_html("#displaytable", drupal_render($form['displaytable']));
-	return array(
-		'#type' => 'ajax',
-		'#commands' => $commands
-	);
+
+	$response = new AjaxResponse();
+	$response->addCommand(new HtmlCommand('#displaytable', $page_content));
+	return $response;
 }
 function verify_qrcode_fromdb($qr_code)
 {
-	$query = db_select('case_study_qr_code');
+	$query = \Drupal::database()->select('case_study_qr_code');
 	$query->fields('case_study_qr_code', array(
 		'proposal_id'
 	));
@@ -69,11 +70,11 @@ function verify_qrcode_fromdb($qr_code)
 	$proposal_id = $result->fetchObject()->proposal_id;
 	if ($proposal_id)
 	{
-		$query2 = db_query("SELECT * FROM {case_study_proposal} WHERE approval_status=3", array(
+		$query2 = \Drupal::database()->query("SELECT * FROM {case_study_proposal} WHERE approval_status=3", array(
 		':uid' => $proposal_id
 		));
 		$data2 = $query2->fetchObject();
-		$query3 = db_query("SELECT * FROM case_study_proposal WHERE approval_status=3 AND id=:uid", array(
+		$query3 = \Drupal::database()->query("SELECT * FROM case_study_proposal WHERE approval_status=3 AND id=:uid", array(
 		':uid' => $proposal_id
 	));
 	$data3 = $query3->fetchObject();

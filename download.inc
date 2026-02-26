@@ -2,13 +2,13 @@
 function cfd_case_study_project_files() {
 	$proposal_id = arg(3);
 	$root_path = cfd_case_study_path();
-	$query = db_select('case_study_submitted_abstracts_file');
+	$query = \Drupal::database()->select('case_study_submitted_abstracts_file');
 	$query->fields('case_study_submitted_abstracts_file');
 	$query->condition('proposal_id', $proposal_id);
 	$query->condition('filetype', 'A');
 	$result = $query->execute();
 	$cfd_case_study_project_files = $result->fetchObject();
-	$query1 = db_select('case_study_proposal');
+	$query1 = \Drupal::database()->select('case_study_proposal');
 	$query1->fields('case_study_proposal');
 	$query1->condition('id', $proposal_id);
 	$result1 = $query1->execute();
