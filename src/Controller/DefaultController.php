@@ -370,11 +370,11 @@ public function cfd_case_study_abstract() {
     $url = "";
     if (!empty($abstracts_q)) {
         if (empty($abstracts_q->is_submitted)) {
-            $url = Link::fromTextAndUrl('Upload Case Directory', Url::fromRoute('case_study_project.abstract_code.upload'))->toString();
+            $url = Link::fromTextAndUrl('Upload Case Directory', Url::fromRoute('cfd_case_study.upload_abstract_code_form'))->toString();
         } elseif ($abstracts_q->is_submitted == 1) {
             $url = "";
         } elseif ($abstracts_q->is_submitted == 0) {
-            $url = Link::fromTextAndUrl('Edit', Url::fromRoute('case_study_project.abstract_code.upload'))->toString();
+            $url = Link::fromTextAndUrl('Edit', Url::fromRoute('cfd_case_study.upload_abstract_code_form'))->toString();
         }
     }
 
@@ -413,13 +413,6 @@ public function cfd_case_study_abstract() {
     /* creating zip archive on the server */
     $zip = new \ZipArchive();
     $zip->open($zip_filename, \ZipArchive::CREATE);
-    $query = \Drupal::database()->select('case_study_proposal');
-    $query->fields('case_study_proposal');
-    $query->condition('id', $id);
-    $circuit_simulation_udc_q = $query->execute();
-    $query = \Drupal::database()->select('case_study_proposal');
-    $query->fields('case_study_proposal');
-    $query->condition('id', $id);
     $query = \Drupal::database()->select('case_study_submitted_abstracts_file');
     $query->fields('case_study_submitted_abstracts_file');
     $query->condition('proposal_id', $id);
@@ -442,7 +435,7 @@ public function cfd_case_study_abstract() {
     }
 
     \Drupal::messenger()->addError("There are no case study project in this proposal to download");
-    return new RedirectResponse(Url::fromUserInput('/circuit-simulation-project/full-download/project')->toString());
+    return new RedirectResponse(Url::fromUserInput('/case-study-project/full-download/project')->toString());
   }
 
 
@@ -463,7 +456,7 @@ public function cfd_case_study_abstract() {
 
     if (!$case_study_data) {
       $this->messenger()->addError("Invalid proposal ID.");
-      return new RedirectResponse('/circuit-simulation-project/full-download/project');
+      return new RedirectResponse('/case-study-project/full-download/project');
     }
 
     $CASE_STUDY_PATH = $case_study_data->directory_name . '/';
@@ -472,7 +465,7 @@ public function cfd_case_study_abstract() {
     $zip = new \ZipArchive();
     if ($zip->open($zip_filename, \ZipArchive::CREATE) !== TRUE) {
       $this->messenger()->addError("Could not create ZIP file.");
-      return new RedirectResponse('/circuit-simulation-project/full-download/project');
+      return new RedirectResponse('/case-study-project/full-download/project');
     }
 
     // Get all project files for the proposal
@@ -510,7 +503,7 @@ public function cfd_case_study_abstract() {
     }
     else {
       $this->messenger()->addError("There are no case study project files in this proposal to download.");
-      return new RedirectResponse('/circuit-simulation-project/full-download/project');
+      return new RedirectResponse('/case-study-project/full-download/project');
     }
   }
 
@@ -542,7 +535,7 @@ public function cfd_case_study_completed_proposals_all() {
       $year = date("Y", $record->actual_completion_date);
       $project_title = Link::fromTextAndUrl(
         $record->project_title,
-        Url::fromRoute('cfd_case_study.run_form', ['case_study_run' => $record->id])
+        Url::fromRoute('cfd_case_study.run_form', ['id' => $record->id])
       )->toRenderable();
 
      
@@ -662,7 +655,9 @@ public function cfd_case_study_completed_proposals_all() {
   ");
 
   while ($result = $query->fetchObject()) {
-    $url = Url::fromUri('internal:/case-study-project/download/project-title-file/' . $result->id);
+    $url = Url::fromRoute('cfd_case_study.download_case_study_project_title_files', [], [
+      'query' => ['id' => $result->id],
+    ]);
     $link = Link::fromTextAndUrl($result->project_title_name, $url)->toRenderable();
 
     $preference_rows[] = [
