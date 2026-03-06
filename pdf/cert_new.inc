@@ -165,8 +165,26 @@ function generate_pdf()
 	$pdf->Ln(10);
 	$sign1 = $path . "/pdf/images/sign1.png";
 	$sign2 = $path . "/pdf/images/sign2.png";
+	$sign3 = $path . "/pdf/images/sign-01.png";
+	$sign4 =$path . "/pdf/images/sign-02.png";
+$creation_date = $data3->actual_completion_date;
+if ($creation_date >= strtotime('2025-07-01')) {
+  $pdf->Image($sign3, $pdf->GetX()+75, $pdf->GetY() + 50, 75, 0);
+						$pdf->Image($sign4, $pdf->GetX()+160, $pdf->GetY() + 50, 75, 0);
+}
+elseif ($creation_date >= strtotime('2024-10-01')) {
+    $pdf->Image($sign1, $pdf->GetX()+75, $pdf->GetY() + 50, 75, 0);
+						$pdf->Image($sign4, $pdf->GetX()+160, $pdf->GetY() + 50, 75, 0);
+}
+else {
 	$pdf->Image($sign1, $pdf->GetX()+75, $pdf->GetY() + 45, 60, 0);
 	$pdf->Image($sign2, $pdf->GetX()+160, $pdf->GetY() + 45, 75, 0);
+}
+
+	// $pdf->Image($sign1, $pdf->GetX()+75, $pdf->GetY() + 45, 60, 0);
+	// $pdf->Image($sign2, $pdf->GetX()+160, $pdf->GetY() + 45, 75, 0);
+
+
 	$pdf->Image($pngAbsoluteFilePath, $pdf->GetX()+15, $pdf->GetY()+75, 30, 0);
 	$fossee = $path . "/pdf/images/fossee.png";
 	$mhrd = $path . "/pdf/images/mhrd.png"; 
