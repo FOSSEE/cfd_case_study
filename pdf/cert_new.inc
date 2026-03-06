@@ -173,7 +173,7 @@ if ($creation_date >= strtotime('2025-07-01')) {
 						$pdf->Image($sign4, $pdf->GetX()+160, $pdf->GetY() + 50, 75, 0);
 }
 elseif ($creation_date >= strtotime('2024-10-01')) {
-    $pdf->Image($sign, $pdf->GetX()+75, $pdf->GetY() + 50, 75, 0);
+    $pdf->Image($sign1, $pdf->GetX()+75, $pdf->GetY() + 50, 75, 0);
 						$pdf->Image($sign4, $pdf->GetX()+160, $pdf->GetY() + 50, 75, 0);
 }
 else {
